@@ -218,7 +218,27 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     SOFTDEVICE_PRESENT
     SVC_INTERFACE_CALL_AS_NORMAL_FUNCTION
     __HEAP_SIZE=0
+    
 )
+
+# Debug UART configuration - Set to OFF to disable
+set(BOOTLOADER_DEBUG_UART_ENABLED OFF)
+
+# Conditional debug sources and definitions
+if(BOOTLOADER_DEBUG_UART_ENABLED)
+    message(STATUS "Bootloader debug UART enabled - adding debug sources")
+    target_sources(${PROJECT_NAME} PRIVATE
+        ${SDK_ROOT}/components/libraries/bootloader/bootloader_debug_uart.c
+    )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        BOOTLOADER_DEBUG_UART_ENABLED=1
+    )
+else()
+    message(STATUS "Bootloader debug UART disabled - production build")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        BOOTLOADER_DEBUG_UART_ENABLED=0
+    )
+endif()
 
 # Compiler options
 target_compile_options(${PROJECT_NAME} PRIVATE
@@ -264,7 +284,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex
     COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.bin
-    COMMENT "Creating HEX and BIN files"
+    COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${PROJECT_NAME}>
+    COMMENT "Creating HEX and BIN files, showing firmware size"
 )
 
 # Custom targets for flashing

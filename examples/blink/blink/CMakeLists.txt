@@ -146,7 +146,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex
     COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.bin
-    COMMENT "Creating HEX and BIN files"
+    COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${PROJECT_NAME}>
+    COMMENT "Creating HEX and BIN files, showing firmware size"
 )
 
 # Custom targets for flashing
@@ -171,6 +172,37 @@ add_custom_target(package_dfu
 add_custom_target(erase
     COMMAND nrfjprog -f nrf52 --eraseall
     COMMENT "Erasing chip"
+)
+
+# Custom target for flashing program directly to application area (0x2F000)
+# This generates bootloader settings and flashes both firmware and settings
+add_custom_target(flash_program
+    # Create temp directory
+    COMMAND mkdir -p ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu
+    
+    # Generate bootloader settings page for the application
+    COMMAND nrfutil_6 settings generate 
+        --family NRF52840
+        --application ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex
+        --application-version 1
+        --bootloader-version 1
+        --bl-settings-version 2
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex
+    
+    # Flash the application to 0x2F000
+    COMMAND nrfjprog -f nrf52 --program ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex --sectorerase --verify
+    
+    # Flash the bootloader settings to the settings page (usually 0xFF000)
+    COMMAND nrfjprog -f nrf52 --program ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex --sectorerase --verify
+    
+    # Reset the device
+    COMMAND nrfjprog -f nrf52 --reset
+    
+    # Clean up temporary files
+    COMMAND rm -f ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex
+    
+    DEPENDS ${PROJECT_NAME}
+    COMMENT "Flashing application and generating bootloader settings for direct flash"
 )
 
 # Print build information

@@ -43,35 +43,37 @@
 #include "nrf_bootloader_info.h"
 #include "nrf_log.h"
 #include "nrf_dfu_mbr.h"
+#include "nrf_dfu_utils.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_bootloader_info.h"
+#include "bootloader_debug_uart.h"
+#include "nrf_soc.h"
+#include "nrf_mbr.h"
 
 // Do the final stages of app_start. Protect flash and run app. See nrf_bootloader_app_start_final.c
 void nrf_bootloader_app_start_final(uint32_t start_addr);
 
 void nrf_bootloader_app_start(void)
 {
-    uint32_t start_addr = MBR_SIZE; // Always boot from end of MBR. If a SoftDevice is present, it will boot the app.
-    NRF_LOG_DEBUG("Running nrf_bootloader_app_start with address: 0x%08x", start_addr);
+    uint32_t app_addr = nrf_dfu_app_start_address();
     uint32_t err_code;
 
-    // Disable and clear interrupts
-    // Notice that this disables only 'external' interrupts (positive IRQn).
-    NRF_LOG_DEBUG("Disabling interrupts. NVIC->ICER[0]: 0x%x", NVIC->ICER[0]);
+    /* inicializa MBR/SD se necessário */
+    err_code = nrf_dfu_mbr_init_sd();
+    if (err_code != NRF_SUCCESS) { /* tratar erro */ }
 
-    NVIC->ICER[0]=0xFFFFFFFF;
-    NVIC->ICPR[0]=0xFFFFFFFF;
+    /* limpa interrupções */
+    NVIC->ICER[0] = 0xFFFFFFFF;
+    NVIC->ICPR[0] = 0xFFFFFFFF;
 #if defined(__NRF_NVIC_ISER_COUNT) && __NRF_NVIC_ISER_COUNT == 2
-    NVIC->ICER[1]=0xFFFFFFFF;
-    NVIC->ICPR[1]=0xFFFFFFFF;
+    NVIC->ICER[1] = 0xFFFFFFFF;
+    NVIC->ICPR[1] = 0xFFFFFFFF;
 #endif
 
-    err_code = nrf_dfu_mbr_irq_forward_address_set();
-    if (err_code != NRF_SUCCESS)
-    {
-        NRF_LOG_ERROR("Failed running nrf_dfu_mbr_irq_forward_address_set()");
-    }
+    /* redireciona vetor do SD para app (se usar SD) */
+    err_code = sd_softdevice_vector_table_base_set(app_addr);
+    if (err_code != NRF_SUCCESS) { /* tratar */ }
 
-    NRF_LOG_FLUSH();
-    nrf_bootloader_app_start_final(start_addr);
+    /* por fim, troca para a app */
+    nrf_bootloader_app_start_final(app_addr);
 }
