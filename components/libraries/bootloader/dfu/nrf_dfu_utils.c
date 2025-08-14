@@ -86,14 +86,8 @@ void nrf_dfu_softdevice_invalidate(void)
 
 uint32_t nrf_dfu_bank0_start_addr(void)
 {
-    if (SD_PRESENT)
-    {
-        return ALIGN_TO_PAGE(SD_SIZE_GET(MBR_SIZE));
-    }
-    else
-    {
-        return MBR_SIZE;
-    }
+    // Modified for secondary bootloader: Application starts after 32kB bootloader
+    return 0x0002F000;  // 0x00027000 + 32kB (0x8000)
 }
 
 

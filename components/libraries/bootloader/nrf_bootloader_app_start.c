@@ -41,6 +41,7 @@
 #include "nrf.h"
 #include "nrf_bootloader_app_start.h"
 #include "nrf_bootloader_info.h"
+#include "nrf_dfu_utils.h"
 #include "nrf_log.h"
 #include "nrf_dfu_mbr.h"
 #include "nrf_log_ctrl.h"
@@ -51,7 +52,8 @@ void nrf_bootloader_app_start_final(uint32_t start_addr);
 
 void nrf_bootloader_app_start(void)
 {
-    uint32_t start_addr = MBR_SIZE; // Always boot from end of MBR. If a SoftDevice is present, it will boot the app.
+    // Boot directly to the application vector table (supports non-standard app base)
+    uint32_t start_addr = nrf_dfu_app_start_address();
     NRF_LOG_DEBUG("Running nrf_bootloader_app_start with address: 0x%08x", start_addr);
     uint32_t err_code;
 
