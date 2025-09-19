@@ -146,7 +146,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex
     COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.bin
-    COMMENT "Creating HEX and BIN files"
+    COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${PROJECT_NAME}>
+    COMMENT "Creating HEX and BIN files, showing firmware size"
 )
 
 # Custom targets for flashing
