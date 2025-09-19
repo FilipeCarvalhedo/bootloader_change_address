@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.15)
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/arm-none-eabi-gcc.cmake")
 
 # Project definition
-project(ble_app_uart_pca10056_s140 
+project(ble_uart 
     LANGUAGES C ASM
     VERSION 1.0.0
     DESCRIPTION "Nordic nRF52840 BLE UART Application with SoftDevice S140"
