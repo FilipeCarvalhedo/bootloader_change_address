@@ -1,0 +1,5 @@
+tmp
+# Ignorar qualquer pasta chamada build em qualquer nível
+build/
+*/build/
+**/build/

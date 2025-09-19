@@ -241,6 +241,11 @@ add_custom_target(flash_softdevice
     COMMENT "Flashing the SoftDevice"
 )
 
+add_custom_target(package_dfu
+    COMMAND mkdir -p ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu
+    COMMAND nrfutil_6 pkg generate   --application  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex  --hw-version 52   --application-version 1   --sd-req 0x0100   --key-file ${CMAKE_CURRENT_SOURCE_DIR}/../../../examples/dfu/secure_bootloader/pca10056_s140_ble/armgcc/private_key.pem  ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/${PROJECT_NAME}.zip
+)
+
 add_custom_target(erase
     COMMAND nrfjprog -f nrf52 --eraseall
     COMMENT "Erasing chip"
