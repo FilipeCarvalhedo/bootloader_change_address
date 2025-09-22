@@ -83,6 +83,9 @@
 #include "nrf_gpio.h"
 #include "boards.h"
 #include <stdio.h>
+#include "nrf_mbr.h"
+#include "nrf_soc.h"
+#include "nrf_sdm.h"
 
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
@@ -145,7 +148,7 @@ static void debug_uart_putc(char c)
     uint8_t data = (uint8_t)c;
     
     // Disable interrupts during bit-banging for timing accuracy
-    __disable_irq();
+    // __disable_irq();
     
     // Start bit (LOW)
     nrf_gpio_pin_clear(DEBUG_UART_PIN);
@@ -166,7 +169,7 @@ static void debug_uart_putc(char c)
     nrf_delay_us(DEBUG_UART_BIT_TIME_US);
     
     // Re-enable interrupts
-    __enable_irq();
+    // __enable_irq();
 }
 
 /**@brief Send a string via bit-banged UART
@@ -179,6 +182,7 @@ static void debug_uart_puts(const char *str)
         nrf_delay_ms(1);
     }
 }
+
 
 /**@brief LED status indication for debugging
  */
@@ -521,6 +525,10 @@ static void ble_stack_init(void)
 {
     ret_code_t err_code;
 
+    // If SoftDevice already enabled by bootloader, disable first
+    uint8_t sd_enabled = 0; (void)sd_softdevice_is_enabled(&sd_enabled);
+    if (sd_enabled) { (void)sd_softdevice_disable(); nrf_delay_ms(10); }
+
     err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);
 
@@ -851,14 +859,12 @@ int main(void)
 
     // Start execution.
     debug_uart_puts("Starting advertising...\r\n");
-    printf("\r\nUART started.\r\n");
-    NRF_LOG_INFO("Debug logging for UART over RTT started.");
     advertising_start();
     debug_uart_puts("advertising_start() OK\r\n");
     
     debug_uart_puts("\r\n=== ALL INITIALIZATION COMPLETE! ===\r\n");
     debug_uart_puts("Entering main loop...\r\n\r\n");
-
+    
     // Enter main loop.
     for (;;)
     {
