@@ -79,6 +79,10 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
+#include "nrf_delay.h"
+#include "nrf_gpio.h"
+#include "boards.h"
+#include <stdio.h>
 
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
@@ -117,6 +121,85 @@ static ble_uuid_t m_adv_uuids[]          =                                      
     {BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}
 };
 
+// Bit-banged UART for debug using nrf_delay
+#define DEBUG_UART_PIN                  4                                           /**< P0.04 for debug UART output */
+#define DEBUG_UART_BAUD                 9600                                        /**< 9600 baud for reliable communication */
+#define DEBUG_UART_BIT_TIME_US          (1000000 / DEBUG_UART_BAUD)                /**< Bit time in microseconds (~104us) */
+
+/**@brief Initialize bit-banged debug UART
+ */
+static void debug_uart_init(void)
+{
+    // Configure pin as output, start HIGH (idle state)
+    nrf_gpio_cfg_output(DEBUG_UART_PIN);
+    nrf_gpio_pin_set(DEBUG_UART_PIN);
+    
+    // Wait to ensure line is stable
+    nrf_delay_ms(10);
+}
+
+/**@brief Send a single character via bit-banged UART
+ */
+static void debug_uart_putc(char c)
+{
+    uint8_t data = (uint8_t)c;
+    
+    // Disable interrupts during bit-banging for timing accuracy
+    __disable_irq();
+    
+    // Start bit (LOW)
+    nrf_gpio_pin_clear(DEBUG_UART_PIN);
+    nrf_delay_us(DEBUG_UART_BIT_TIME_US);
+    
+    // Data bits (LSB first)
+    for (int i = 0; i < 8; i++) {
+        if (data & (1 << i)) {
+            nrf_gpio_pin_set(DEBUG_UART_PIN);    // HIGH for '1'
+        } else {
+            nrf_gpio_pin_clear(DEBUG_UART_PIN);  // LOW for '0'
+        }
+        nrf_delay_us(DEBUG_UART_BIT_TIME_US);
+    }
+    
+    // Stop bit (HIGH)
+    nrf_gpio_pin_set(DEBUG_UART_PIN);
+    nrf_delay_us(DEBUG_UART_BIT_TIME_US);
+    
+    // Re-enable interrupts
+    __enable_irq();
+}
+
+/**@brief Send a string via bit-banged UART
+ */
+static void debug_uart_puts(const char *str)
+{
+    while (*str) {
+        debug_uart_putc(*str++);
+        // Small delay between characters for reliability
+        nrf_delay_ms(1);
+    }
+}
+
+/**@brief LED status indication for debugging
+ */
+static void debug_led_init_and_test(void)
+{
+    // Configure LEDs
+    nrf_gpio_cfg_output(13);  // LED 1
+    nrf_gpio_cfg_output(14);  // LED 2
+    nrf_gpio_cfg_output(15);  // LED 3  
+    nrf_gpio_cfg_output(16);  // LED 4
+    
+    // All LEDs OFF initially
+    nrf_gpio_pin_set(13);
+    nrf_gpio_pin_set(14);
+    nrf_gpio_pin_set(15);
+    nrf_gpio_pin_set(16);
+    
+    // LED 1 ON = Starting debug
+    nrf_gpio_pin_clear(13);
+}
+
 
 /**@brief Function for assert macro callback.
  *
@@ -131,6 +214,16 @@ static ble_uuid_t m_adv_uuids[]          =                                      
  */
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
+    debug_uart_puts("\r\n*** ASSERT FAILED! ***\r\n");
+    debug_uart_puts("File: ");
+    debug_uart_puts((const char*)p_file_name);
+    debug_uart_puts("\r\nLine: ");
+    // Simple number to string conversion
+    char line_str[10];
+    sprintf(line_str, "%d", line_num);
+    debug_uart_puts(line_str);
+    debug_uart_puts("\r\n*** SYSTEM HALT ***\r\n");
+    
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
@@ -698,23 +791,73 @@ int main(void)
 {
     bool erase_bonds;
 
+    // FIRST: Initialize debug systems
+    debug_led_init_and_test();
+    debug_uart_init();
+    
+    // Send startup message
+    debug_uart_puts("=== BLE UART Debug Started ===\r\n");
+    debug_uart_puts("App start: 0x2F000, Bootloader: 0x27000\r\n");
+    debug_uart_puts("P0.04 UART @ 9600 baud\r\n\r\n");
+
     // Initialize.
+    debug_uart_puts("Starting uart_init()...\r\n");
     uart_init();
+    debug_uart_puts("uart_init() OK\r\n");
+    
+    debug_uart_puts("Starting log_init()...\r\n");
     log_init();
+    debug_uart_puts("log_init() OK\r\n");
+    
+    debug_uart_puts("Starting timers_init()...\r\n");
     timers_init();
+    debug_uart_puts("timers_init() OK\r\n");
+    
+    debug_uart_puts("Starting buttons_leds_init()...\r\n");
     buttons_leds_init(&erase_bonds);
+    nrf_gpio_pin_clear(14);  // LED 2 ON after buttons_leds_init
+    debug_uart_puts("buttons_leds_init() OK\r\n");
+    
+    debug_uart_puts("Starting power_management_init()...\r\n");
     power_management_init();
+    debug_uart_puts("power_management_init() OK\r\n");
+    
+    // CRITICAL: BLE stack initialization
+    nrf_gpio_pin_clear(15);  // LED 3 ON before BLE init
+    debug_uart_puts("\r\n*** STARTING BLE STACK INIT ***\r\n");
     ble_stack_init();
+    nrf_gpio_pin_clear(16);  // LED 4 ON if BLE init succeeds
+    debug_uart_puts("*** BLE STACK INIT SUCCESS ***\r\n\r\n");
+    
+    debug_uart_puts("Starting gap_params_init()...\r\n");
     gap_params_init();
+    debug_uart_puts("gap_params_init() OK\r\n");
+    
+    debug_uart_puts("Starting gatt_init()...\r\n");
     gatt_init();
+    debug_uart_puts("gatt_init() OK\r\n");
+    
+    debug_uart_puts("Starting services_init()...\r\n");
     services_init();
+    debug_uart_puts("services_init() OK\r\n");
+    
+    debug_uart_puts("Starting advertising_init()...\r\n");
     advertising_init();
+    debug_uart_puts("advertising_init() OK\r\n");
+    
+    debug_uart_puts("Starting conn_params_init()...\r\n");
     conn_params_init();
+    debug_uart_puts("conn_params_init() OK\r\n");
 
     // Start execution.
+    debug_uart_puts("Starting advertising...\r\n");
     printf("\r\nUART started.\r\n");
     NRF_LOG_INFO("Debug logging for UART over RTT started.");
     advertising_start();
+    debug_uart_puts("advertising_start() OK\r\n");
+    
+    debug_uart_puts("\r\n=== ALL INITIALIZATION COMPLETE! ===\r\n");
+    debug_uart_puts("Entering main loop...\r\n\r\n");
 
     // Enter main loop.
     for (;;)
