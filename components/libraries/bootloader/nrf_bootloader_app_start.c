@@ -41,11 +41,12 @@
 #include "nrf.h"
 #include "nrf_bootloader_app_start.h"
 #include "nrf_bootloader_info.h"
-#include "nrf_dfu_utils.h"
 #include "nrf_log.h"
 #include "nrf_dfu_mbr.h"
+#include "nrf_dfu_utils.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_bootloader_info.h"
+#include "nrf_soc.h"
 
 // Do the final stages of app_start. Protect flash and run app. See nrf_bootloader_app_start_final.c
 void nrf_bootloader_app_start_final(uint32_t start_addr);
@@ -72,6 +73,14 @@ void nrf_bootloader_app_start(void)
     if (err_code != NRF_SUCCESS)
     {
         NRF_LOG_ERROR("Failed running nrf_dfu_mbr_irq_forward_address_set()");
+    }
+
+    // Set SoftDevice vector table to application address
+    NRF_LOG_DEBUG("Setting SoftDevice vector table to app: 0x%08x", start_addr);
+    err_code = sd_softdevice_vector_table_base_set(start_addr);
+    if (err_code != NRF_SUCCESS)
+    {
+        NRF_LOG_ERROR("Failed setting SoftDevice vector table: 0x%08x", err_code);
     }
 
     NRF_LOG_FLUSH();

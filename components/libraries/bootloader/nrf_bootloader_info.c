@@ -63,10 +63,13 @@
 
 void nrf_bootloader_mbr_addrs_populate(void)
 {
+    // Write bootloader address to MBR flash location (0xFF8)
     if (*(const uint32_t *)MBR_BOOTLOADER_ADDR == 0xFFFFFFFF)
     {
         nrf_nvmc_write_word(MBR_BOOTLOADER_ADDR, BOOTLOADER_START_ADDR);
     }
+    
+    // Write MBR parameters page address
     if (*(const uint32_t *)MBR_PARAM_PAGE_ADDR == 0xFFFFFFFF)
     {
         nrf_nvmc_write_word(MBR_PARAM_PAGE_ADDR, NRF_MBR_PARAMS_PAGE_ADDRESS);

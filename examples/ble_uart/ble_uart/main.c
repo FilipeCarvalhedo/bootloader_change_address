@@ -83,7 +83,6 @@
 #include "nrf_gpio.h"
 #include "boards.h"
 #include <stdio.h>
-#include "nrf_mbr.h"
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
 
@@ -525,12 +524,33 @@ static void ble_stack_init(void)
 {
     ret_code_t err_code;
 
-    // If SoftDevice already enabled by bootloader, disable first
-    uint8_t sd_enabled = 0; (void)sd_softdevice_is_enabled(&sd_enabled);
-    if (sd_enabled) { (void)sd_softdevice_disable(); nrf_delay_ms(10); }
+    // Handle SoftDevice left in invalid state by bootloader
+    debug_uart_puts("Checking SoftDevice state...\r\n");
+    uint8_t sd_enabled = 0;
+    ret_code_t check_err = sd_softdevice_is_enabled(&sd_enabled);
+    char sd_msg[64];
+    sprintf(sd_msg, "SD check: err=0x%08lX, enabled=%d\r\n", check_err, sd_enabled);
+    debug_uart_puts(sd_msg);
+    
+    if (sd_enabled || check_err != NRF_SUCCESS)
+    {
+        debug_uart_puts("SoftDevice in invalid state, resetting...\r\n");
+        sd_softdevice_disable();
+        nrf_delay_ms(100);
+        debug_uart_puts("SoftDevice disabled, proceeding...\r\n");
+    }
 
+    debug_uart_puts("Step 1: nrf_sdh_enable_request()...\r\n");
     err_code = nrf_sdh_enable_request();
-    APP_ERROR_CHECK(err_code);
+    if (err_code != NRF_SUCCESS)
+    {
+        char error_msg[64];
+        sprintf(error_msg, "nrf_sdh_enable_request() FAILED: 0x%08lX\r\n", err_code);
+        debug_uart_puts(error_msg);
+        debug_uart_puts("STOPPING - NOT RESETTING\r\n");
+        while(1) { nrf_delay_ms(1000); } // Stop here instead of reset
+    }
+    debug_uart_puts("nrf_sdh_enable_request() OK\r\n");
 
     // Configure the BLE stack using the default settings.
     // Fetch the start address of the application RAM.

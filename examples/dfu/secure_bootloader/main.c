@@ -129,7 +129,9 @@ int main(void)
     uint32_t ret_val;
 
     // Must happen before flash protection is applied, since it edits a protected page.
+    NRF_LOG_INFO("Populating MBR addresses with BOOTLOADER_START_ADDR=0x%08x", BOOTLOADER_START_ADDR);
     nrf_bootloader_mbr_addrs_populate();
+    NRF_LOG_INFO("MBR addresses populated");
 
     // Protect MBR and bootloader code from being overwritten.
     // ret_val = nrf_bootloader_flash_protect(0, MBR_SIZE);
