@@ -54,12 +54,16 @@ void nrf_bootloader_app_start_final(uint32_t start_addr);
 
 void nrf_bootloader_app_start(void)
 {
+#if BOOTLOADER_DEBUG_UART_ENABLED
     // Debug: App start transition
     bootloader_debug_uart_puts("\r\n=== APP START TRANSITION ===\r\n");
+#endif
     
     // Boot directly to the application vector table (supports non-standard app base)
     uint32_t start_addr = nrf_dfu_app_start_address();
+#if BOOTLOADER_DEBUG_UART_ENABLED
     bootloader_debug_uart_msg_hex("App start addr: ", start_addr, "\r\n");
+#endif
     NRF_LOG_DEBUG("Running nrf_bootloader_app_start with address: 0x%08x", start_addr);
     uint32_t err_code;
 
@@ -74,16 +78,22 @@ void nrf_bootloader_app_start(void)
     NVIC->ICPR[1]=0xFFFFFFFF;
 #endif
 
+#if BOOTLOADER_DEBUG_UART_ENABLED
     bootloader_debug_uart_puts("Setting MBR forwarding...\r\n");
+#endif
     err_code = nrf_dfu_mbr_irq_forward_address_set();
     if (err_code != NRF_SUCCESS)
     {
+#if BOOTLOADER_DEBUG_UART_ENABLED
         bootloader_debug_uart_puts("MBR set FAILED!\r\n");
+#endif
         NRF_LOG_ERROR("Failed running nrf_dfu_mbr_irq_forward_address_set()");
     }
     else
     {
+#if BOOTLOADER_DEBUG_UART_ENABLED
         bootloader_debug_uart_puts("MBR set OK\r\n");
+#endif
     }
 
     // Set SoftDevice vector table to application address
@@ -94,7 +104,9 @@ void nrf_bootloader_app_start(void)
         NRF_LOG_ERROR("Failed setting SoftDevice vector table: 0x%08x", err_code);
     }
 
+#if BOOTLOADER_DEBUG_UART_ENABLED
     bootloader_debug_uart_puts("Jumping to app...\r\n");
+#endif
     NRF_LOG_FLUSH();
     nrf_bootloader_app_start_final(start_addr);
 }

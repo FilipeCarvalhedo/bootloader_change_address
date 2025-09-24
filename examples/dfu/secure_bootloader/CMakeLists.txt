@@ -114,9 +114,6 @@ set(SOURCES
     ${SDK_ROOT}/components/libraries/bootloader/nrf_bootloader_fw_activation.c
     ${SDK_ROOT}/components/libraries/bootloader/nrf_bootloader_info.c
     ${SDK_ROOT}/components/libraries/bootloader/nrf_bootloader_wdt.c
-    ${SDK_ROOT}/components/libraries/bootloader/bootloader_debug_uart.c
-    
-    # UART for debug - using direct register access
     
     # Protocol Buffers
     ${SDK_ROOT}/external/nano-pb/pb_common.c
@@ -193,9 +190,6 @@ set(INCLUDE_DIRS
     ${SDK_ROOT}/components/libraries/queue
     ${SDK_ROOT}/components/libraries/mutex
     ${SDK_ROOT}/components/libraries/ringbuf
-    
-    # GPIO includes for UART
-    ${SDK_ROOT}/modules/nrfx/hal
 )
 
 # Create the executable target
@@ -224,7 +218,27 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     SOFTDEVICE_PRESENT
     SVC_INTERFACE_CALL_AS_NORMAL_FUNCTION
     __HEAP_SIZE=0
+    
 )
+
+# Debug UART configuration - Set to OFF to disable
+set(BOOTLOADER_DEBUG_UART_ENABLED OFF)
+
+# Conditional debug sources and definitions
+if(BOOTLOADER_DEBUG_UART_ENABLED)
+    message(STATUS "Bootloader debug UART enabled - adding debug sources")
+    target_sources(${PROJECT_NAME} PRIVATE
+        ${SDK_ROOT}/components/libraries/bootloader/bootloader_debug_uart.c
+    )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        BOOTLOADER_DEBUG_UART_ENABLED=1
+    )
+else()
+    message(STATUS "Bootloader debug UART disabled - production build")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        BOOTLOADER_DEBUG_UART_ENABLED=0
+    )
+endif()
 
 # Compiler options
 target_compile_options(${PROJECT_NAME} PRIVATE

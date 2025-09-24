@@ -15,6 +15,7 @@ static bool uart_initialized = false;
 
 void bootloader_debug_uart_init(void)
 {
+#if BOOTLOADER_DEBUG_UART_ENABLED
     if (uart_initialized) {
         return;
     }
@@ -39,10 +40,12 @@ void bootloader_debug_uart_init(void)
     bootloader_debug_uart_puts("Testing 1-2-3...\r\n\r\n");
     
     nrf_gpio_pin_set(13);  // LED OFF when done
+#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
 void bootloader_debug_uart_putc(char c)
 {
+#if BOOTLOADER_DEBUG_UART_ENABLED
     if (!uart_initialized) {
         return;
     }
@@ -66,10 +69,12 @@ void bootloader_debug_uart_putc(char c)
     // Stop bit (HIGH) - SAME AS BLE_UART
     nrf_gpio_pin_set(DEBUG_UART_PIN);
     nrf_delay_us(DEBUG_UART_BIT_TIME_US);
+#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
 void bootloader_debug_uart_puts(const char* str)
 {
+#if BOOTLOADER_DEBUG_UART_ENABLED
     if (!str || !uart_initialized) {
         return;
     }
@@ -79,10 +84,12 @@ void bootloader_debug_uart_puts(const char* str)
         // Small delay between characters for reliability - SAME AS BLE_UART
         nrf_delay_ms(1);
     }
+#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
 void bootloader_debug_uart_hex(uint32_t value)
 {
+#if BOOTLOADER_DEBUG_UART_ENABLED
     if (!uart_initialized) {
         return;
     }
@@ -93,10 +100,12 @@ void bootloader_debug_uart_hex(uint32_t value)
     for(int i = 7; i >= 0; i--) {
         bootloader_debug_uart_putc(hex[(value >> (i*4)) & 0xF]);
     }
+#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
 void bootloader_debug_uart_dec(uint32_t value)
 {
+#if BOOTLOADER_DEBUG_UART_ENABLED
     if (!uart_initialized) {
         return;
     }
@@ -117,10 +126,12 @@ void bootloader_debug_uart_dec(uint32_t value)
     for (int i = pos - 1; i >= 0; i--) {
         bootloader_debug_uart_putc(buffer[i]);
     }
+#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
 void bootloader_debug_uart_msg_hex(const char* prefix, uint32_t value, const char* suffix)
 {
+#if BOOTLOADER_DEBUG_UART_ENABLED
     if (!uart_initialized) {
         return;
     }
@@ -134,4 +145,5 @@ void bootloader_debug_uart_msg_hex(const char* prefix, uint32_t value, const cha
     if (suffix) {
         bootloader_debug_uart_puts(suffix);
     }
+#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }

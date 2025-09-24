@@ -129,16 +129,22 @@ int main(void)
 {
     uint32_t ret_val;
 
+#if BOOTLOADER_DEBUG_UART_ENABLED
     // Initialize debug UART very early
     bootloader_debug_uart_init();
     bootloader_debug_uart_puts("=== SECURE BOOTLOADER STARTED ===\r\n");
     bootloader_debug_uart_msg_hex("Bootloader addr: ", BOOTLOADER_START_ADDR, "\r\n");
+#endif
 
     // Must happen before flash protection is applied, since it edits a protected page.
+#if BOOTLOADER_DEBUG_UART_ENABLED
     bootloader_debug_uart_puts("Populating MBR addresses...\r\n");
+#endif
     NRF_LOG_INFO("Populating MBR addresses with BOOTLOADER_START_ADDR=0x%08x", BOOTLOADER_START_ADDR);
     nrf_bootloader_mbr_addrs_populate();
+#if BOOTLOADER_DEBUG_UART_ENABLED
     bootloader_debug_uart_puts("MBR addresses populated\r\n");
+#endif
     NRF_LOG_INFO("MBR addresses populated");
 
     // Protect MBR and bootloader code from being overwritten.
