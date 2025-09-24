@@ -60,6 +60,7 @@
 #include "app_error_weak.h"
 #include "nrf_bootloader_info.h"
 #include "nrf_delay.h"
+#include "bootloader_debug_uart.h"
 
 static void on_error(void)
 {
@@ -128,9 +129,16 @@ int main(void)
 {
     uint32_t ret_val;
 
+    // Initialize debug UART very early
+    bootloader_debug_uart_init();
+    bootloader_debug_uart_puts("=== SECURE BOOTLOADER STARTED ===\r\n");
+    bootloader_debug_uart_msg_hex("Bootloader addr: ", BOOTLOADER_START_ADDR, "\r\n");
+
     // Must happen before flash protection is applied, since it edits a protected page.
+    bootloader_debug_uart_puts("Populating MBR addresses...\r\n");
     NRF_LOG_INFO("Populating MBR addresses with BOOTLOADER_START_ADDR=0x%08x", BOOTLOADER_START_ADDR);
     nrf_bootloader_mbr_addrs_populate();
+    bootloader_debug_uart_puts("MBR addresses populated\r\n");
     NRF_LOG_INFO("MBR addresses populated");
 
     // Protect MBR and bootloader code from being overwritten.

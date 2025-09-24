@@ -114,6 +114,9 @@ set(SOURCES
     ${SDK_ROOT}/components/libraries/bootloader/nrf_bootloader_fw_activation.c
     ${SDK_ROOT}/components/libraries/bootloader/nrf_bootloader_info.c
     ${SDK_ROOT}/components/libraries/bootloader/nrf_bootloader_wdt.c
+    ${SDK_ROOT}/components/libraries/bootloader/bootloader_debug_uart.c
+    
+    # UART for debug - using direct register access
     
     # Protocol Buffers
     ${SDK_ROOT}/external/nano-pb/pb_common.c
@@ -190,6 +193,9 @@ set(INCLUDE_DIRS
     ${SDK_ROOT}/components/libraries/queue
     ${SDK_ROOT}/components/libraries/mutex
     ${SDK_ROOT}/components/libraries/ringbuf
+    
+    # GPIO includes for UART
+    ${SDK_ROOT}/modules/nrfx/hal
 )
 
 # Create the executable target
