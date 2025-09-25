@@ -798,7 +798,6 @@ int main(void)
     
     // Send startup message
     debug_uart_puts("=== BLE UART Debug Started ===\r\n");
-    debug_uart_puts("App start: 0x2F000, Bootloader: 0x27000\r\n");
     debug_uart_puts("P0.04 UART @ 9600 baud\r\n\r\n");
 
     // Initialize.
@@ -822,6 +821,39 @@ int main(void)
     debug_uart_puts("Starting power_management_init()...\r\n");
     power_management_init();
     debug_uart_puts("power_management_init() OK\r\n");
+    
+    // DYNAMIC: Get real addresses from system (AFTER basic init)
+    extern uint32_t __isr_vector;  // Linker symbol for vector table start
+    uint32_t app_real_start = (uint32_t)&__isr_vector;
+    
+    // Get UICR bootloader address
+    uint32_t uicr_bootloader = *(uint32_t*)0x10001014;
+    
+    // Get MBR bootloader address  
+    uint32_t mbr_bootloader = *(uint32_t*)0x00000FF8;
+    
+    // Print real addresses
+    char addr_msg[80];
+    sprintf(addr_msg, "REAL App start: 0x%08lX (from linker)\r\n", app_real_start);
+    debug_uart_puts(addr_msg);
+    
+    sprintf(addr_msg, "UICR Bootloader: 0x%08lX\r\n", uicr_bootloader);
+    debug_uart_puts(addr_msg);
+    
+    sprintf(addr_msg, "MBR Bootloader: 0x%08lX\r\n", mbr_bootloader);
+    debug_uart_puts(addr_msg);
+    
+    // Check MBR forwarding address at app start
+    uint32_t mbr_forward = *(uint32_t *)(0x20000000);
+    sprintf(addr_msg, "MBR Forward Address: 0x%08lX\r\n", mbr_forward);
+    debug_uart_puts(addr_msg);
+    
+    // Check VTOR
+    uint32_t app_vector_table = SCB->VTOR;
+    sprintf(addr_msg, "App VTOR: 0x%08lX\r\n", app_vector_table);
+    debug_uart_puts(addr_msg);
+    
+    debug_uart_puts("\r\n");
     
     // CRITICAL: BLE stack initialization
     nrf_gpio_pin_clear(15);  // LED 3 ON before BLE init
