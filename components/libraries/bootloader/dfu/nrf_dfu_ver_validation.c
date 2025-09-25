@@ -80,10 +80,6 @@ static bool sd_req_check(uint32_t const * p_sd_req, uint8_t sd_req_cnt, bool acc
 
 static bool sd_req_ok(dfu_init_command_t const * p_init)
 {
-    // Accept any SD FWID for application updates
-    if (p_init->type == DFU_FW_TYPE_APPLICATION) {
-        return true;
-    }
     ASSERT(p_init != NULL);
     bool result;
 #if defined(BLE_STACK_SUPPORT_REQD) || defined(ANT_STACK_SUPPORT_REQD)
