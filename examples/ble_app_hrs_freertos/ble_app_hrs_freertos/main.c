@@ -49,8 +49,11 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include "nordic_common.h"
 #include "nrf.h"
+#include "nrf_gpio.h"
+#include "nrf_delay.h"
 #include "app_error.h"
 #include "ble.h"
 #include "ble_hci.h"
@@ -103,6 +106,59 @@
 #define MIN_HEART_RATE                      140                                     /**< Minimum heart rate as returned by the simulated measurement function. */
 #define MAX_HEART_RATE                      300                                     /**< Maximum heart rate as returned by the simulated measurement function. */
 #define HEART_RATE_INCREMENT                10                                      /**< Value by which the heart rate is incremented/decremented for each call to the simulated measurement function. */
+
+// Debug UART defines (bit-banged) - CRITICAL FOR BOOTLOADER DEBUG
+#define DEBUG_UART_PIN                      4                                       /**< P0.04 for debug UART output */
+#define DEBUG_UART_BAUD                     9600                                    /**< 9600 baud for reliable communication */
+#define DEBUG_UART_BIT_TIME_US              (1000000 / DEBUG_UART_BAUD)            /**< Bit time in microseconds (~104us) */
+
+/**@brief Initialize bit-banged debug UART - WORKS BEFORE ANY INIT
+ */
+static void debug_uart_init(void)
+{
+    // Configure pin as output, start HIGH (idle state)
+    nrf_gpio_cfg_output(DEBUG_UART_PIN);
+    nrf_gpio_pin_set(DEBUG_UART_PIN);
+    
+    // Wait to ensure line is stable
+    nrf_delay_ms(10);
+}
+
+/**@brief Send a single character via bit-banged UART
+ */
+static void debug_uart_putc(char c)
+{
+    uint8_t data = (uint8_t)c;
+    
+    // Start bit (LOW)
+    nrf_gpio_pin_clear(DEBUG_UART_PIN);
+    nrf_delay_us(DEBUG_UART_BIT_TIME_US);
+    
+    // Data bits (LSB first)
+    for (int i = 0; i < 8; i++) {
+        if (data & (1 << i)) {
+            nrf_gpio_pin_set(DEBUG_UART_PIN);    // HIGH for '1'
+        } else {
+            nrf_gpio_pin_clear(DEBUG_UART_PIN);  // LOW for '0'
+        }
+        nrf_delay_us(DEBUG_UART_BIT_TIME_US);
+    }
+    
+    // Stop bit (HIGH)
+    nrf_gpio_pin_set(DEBUG_UART_PIN);
+    nrf_delay_us(DEBUG_UART_BIT_TIME_US);
+}
+
+/**@brief Send a string via bit-banged UART
+ */
+static void debug_uart_puts(const char *str)
+{
+    while (*str) {
+        debug_uart_putc(*str++);
+        // Small delay between characters for reliability
+        nrf_delay_ms(1);
+    }
+}
 
 #define RR_INTERVAL_INTERVAL                300                                     /**< RR interval interval (ms). */
 #define MIN_RR_INTERVAL                     100                                     /**< Minimum RR interval as returned by the simulated measurement function. */
@@ -943,9 +999,57 @@ int main(void)
 {
     bool erase_bonds;
 
+    // CRITICAL: Early debug before ANY initialization
+    debug_uart_init();
+    debug_uart_puts("=== FREERTOS HRS BOOT START ===\r\n");
+    debug_uart_puts("P0.04 UART @ 9600 baud\r\n");
+    
+    // Print boot source info IMMEDIATELY
+    extern uint32_t __isr_vector;
+    char addr_msg[80];
+    sprintf(addr_msg, "App vector table: 0x%08lX\r\n", (uint32_t)&__isr_vector);
+    debug_uart_puts(addr_msg);
+    
+    sprintf(addr_msg, "Initial VTOR: 0x%08lX\r\n", SCB->VTOR);
+    debug_uart_puts(addr_msg);
+    
+    sprintf(addr_msg, "Initial SP: 0x%08lX\r\n", __get_MSP());
+    debug_uart_puts(addr_msg);
+    
+    // Check if we're running from bootloader or direct flash
+    uint32_t app_start = (uint32_t)&__isr_vector;
+    if (app_start == 0x27000) {
+        debug_uart_puts("*** DIRECT FLASH MODE (0x27000) ***\r\n");
+    } else if (app_start == 0x2F000) {
+        debug_uart_puts("*** BOOTLOADER MODE (0x2F000) ***\r\n");
+        
+        // Additional bootloader debug info
+        uint32_t uicr_bootloader = *(uint32_t*)0x10001014;
+        uint32_t mbr_bootloader = *(uint32_t*)0x00000FF8;
+        uint32_t mbr_forward = *(uint32_t *)(0x20000000);
+        
+        sprintf(addr_msg, "UICR Bootloader: 0x%08lX\r\n", uicr_bootloader);
+        debug_uart_puts(addr_msg);
+        
+        sprintf(addr_msg, "MBR Bootloader: 0x%08lX\r\n", mbr_bootloader);
+        debug_uart_puts(addr_msg);
+        
+        sprintf(addr_msg, "MBR Forward Address: 0x%08lX\r\n", mbr_forward);
+        debug_uart_puts(addr_msg);
+    } else {
+        sprintf(addr_msg, "*** UNKNOWN MODE (0x%08lX) ***\r\n", app_start);
+        debug_uart_puts(addr_msg);
+    }
+    
+    debug_uart_puts("Before log_init()...\r\n");
+
     // Initialize modules.
     log_init();
+    debug_uart_puts("log_init() OK\r\n");
+    
+    debug_uart_puts("Before clock_init()...\r\n");
     clock_init();
+    debug_uart_puts("clock_init() OK\r\n");
 
     // Do not start any interrupt that uses system functions before system initialisation.
     // The best solution is to start the OS before any other initalisation.
@@ -961,28 +1065,65 @@ int main(void)
     // Activate deep sleep mode.
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
 
+    debug_uart_puts("*** CRITICAL: Before BLE stack init ***\r\n");
     // Configure and initialize the BLE stack.
     ble_stack_init();
+    debug_uart_puts("ble_stack_init() OK\r\n");
 
+    debug_uart_puts("Before modules init...\r\n");
     // Initialize modules.
     timers_init();
+    debug_uart_puts("timers_init() OK\r\n");
+    
     buttons_leds_init(&erase_bonds);
+    debug_uart_puts("buttons_leds_init() OK\r\n");
+    
     gap_params_init();
+    debug_uart_puts("gap_params_init() OK\r\n");
+    
     gatt_init();
+    debug_uart_puts("gatt_init() OK\r\n");
+    
     advertising_init();
+    debug_uart_puts("advertising_init() OK\r\n");
+    
     services_init();
+    debug_uart_puts("services_init() OK\r\n");
+    
     sensor_simulator_init();
+    debug_uart_puts("sensor_simulator_init() OK\r\n");
+    
     conn_params_init();
-    peer_manager_init();
+    debug_uart_puts("conn_params_init() OK\r\n");
+    
+    debug_uart_puts("*** CRITICAL: Before peer_manager_init ***\r\n");
+    debug_uart_puts("This is where bootloader mode crashes!\r\n");
+    
+    // Check if we're in bootloader mode - skip peer manager if so
+    if (app_start == 0x2F000) {
+        debug_uart_puts("*** BOOTLOADER MODE: SKIPPING peer_manager_init ***\r\n");
+        debug_uart_puts("peer_manager_init() SKIPPED\r\n");
+    } else {
+        debug_uart_puts("*** DIRECT FLASH MODE: Running peer_manager_init ***\r\n");
+        peer_manager_init();
+        debug_uart_puts("peer_manager_init() OK\r\n");
+    }
+    
+    debug_uart_puts("Before application_timers_start...\r\n");
     application_timers_start();
+    debug_uart_puts("application_timers_start() OK\r\n");
 
+    debug_uart_puts("*** CRITICAL: Before FreeRTOS init ***\r\n");
     // Create a FreeRTOS task for the BLE stack.
     // The task will run advertising_start() before entering its loop.
     nrf_sdh_freertos_init(advertising_start, &erase_bonds);
+    debug_uart_puts("nrf_sdh_freertos_init() OK\r\n");
 
     NRF_LOG_INFO("HRS FreeRTOS example started.");
+    debug_uart_puts("*** CRITICAL: Starting FreeRTOS scheduler ***\r\n");
     // Start FreeRTOS scheduler.
     vTaskStartScheduler();
+    debug_uart_puts("*** ERROR: vTaskStartScheduler returned! ***\r\n");
 
     for (;;)
     {
