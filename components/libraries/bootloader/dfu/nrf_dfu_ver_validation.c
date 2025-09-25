@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2017 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -80,6 +80,11 @@ static bool sd_req_check(uint32_t const * p_sd_req, uint8_t sd_req_cnt, bool acc
 
 static bool sd_req_ok(dfu_init_command_t const * p_init)
 {
+    // Accept any SD FWID for application updates
+    if (p_init->type == DFU_FW_TYPE_APPLICATION) {
+        return true;
+    }
+
     ASSERT(p_init != NULL);
     bool result;
 #if defined(BLE_STACK_SUPPORT_REQD) || defined(ANT_STACK_SUPPORT_REQD)
@@ -110,10 +115,10 @@ static bool sd_req_ok(dfu_init_command_t const * p_init)
                 // The application can overwrite the SD if sd_req[0] == 0 and table has the FWID of the current SD.
                 result = sd_req_check(p_init->sd_req, p_init->sd_req_count, false);
 
-                // Prevent BLE/ANT bootloaders from allowing applications overwriting the SoftDevice.
-#if defined(BLE_STACK_SUPPORT_REQD) || defined(ANT_STACK_SUPPORT_REQD)
+                // Prevent BLE bootloaders from allowing applications overwriting the SoftDevice.
+#ifdef BLE_STACK_SUPPORT_REQD
                 result = false;
-#endif
+#endif // BLE_STACK_SUPPORT_REQD
             }
             else
             {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2015 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -318,7 +318,6 @@ static void sec_proc_start(uint16_t                conn_handle,
 }
 
 
-#ifdef BLE_GAP_ROLE_PERIPH
 /**@brief Function for processing the @ref BLE_GAP_EVT_SEC_INFO_REQUEST event from the SoftDevice.
  *
  * @param[in]  p_gap_evt  The event from the SoftDevice.
@@ -392,7 +391,6 @@ static void sec_info_request_process(ble_gap_evt_t const * p_gap_evt)
 
     return;
 }
-#endif // BLE_GAP_ROLE_PERIPH
 
 
 /**@brief Function for sending a CONFIG_REQ event.
@@ -467,7 +465,6 @@ static void send_params_req(uint16_t conn_handle, ble_gap_sec_params_t const * p
  */
 static void sec_params_request_process(ble_gap_evt_t const * p_gap_evt)
 {
-#ifdef BLE_GAP_ROLE_PERIPH
     if (ble_conn_state_role(p_gap_evt->conn_handle) == BLE_GAP_ROLE_PERIPH)
     {
         sec_proc_start(p_gap_evt->conn_handle,
@@ -476,7 +473,6 @@ static void sec_params_request_process(ble_gap_evt_t const * p_gap_evt)
                                                ? PM_CONN_SEC_PROCEDURE_BONDING
                                                : PM_CONN_SEC_PROCEDURE_PAIRING);
     }
-#endif // BLE_GAP_ROLE_PERIPH
 
     send_params_req(p_gap_evt->conn_handle, &p_gap_evt->params.sec_params_request.peer_params);
     return;
@@ -800,13 +796,11 @@ ret_code_t smd_params_reply(uint16_t                 conn_handle,
     ble_gap_sec_keyset_t sec_keyset;
 
     memset(&sec_keyset, 0, sizeof(ble_gap_sec_keyset_t));
-#ifdef BLE_GAP_ROLE_PERIPH
     if (role == BLE_GAP_ROLE_PERIPH)
     {
         // Set the default value for allowing repairing at the start of the sec proc. (for peripheral)
         ble_conn_state_user_flag_set(conn_handle, m_flag_allow_repairing, false);
     }
-#endif // BLE_GAP_ROLE_PERIPH
 
     if (role == BLE_GAP_ROLE_INVALID)
     {
@@ -827,7 +821,6 @@ ret_code_t smd_params_reply(uint16_t                 conn_handle,
     }
     else
     {
-#ifdef BLE_GAP_ROLE_PERIPH
         if ((im_peer_id_get_by_conn_handle(conn_handle) != PM_PEER_ID_INVALID) &&
             (role == BLE_GAP_ROLE_PERIPH) &&
             !allow_repairing(conn_handle))
@@ -840,7 +833,6 @@ ret_code_t smd_params_reply(uint16_t                 conn_handle,
                 sec_status = BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP;
             }
         }
-#endif // BLE_GAP_ROLE_PERIPH
 
         if (!p_sec_params->bond)
         {
@@ -859,13 +851,14 @@ ret_code_t smd_params_reply(uint16_t                 conn_handle,
     {
         // Everything OK, reply to SoftDevice. If an error happened, the user is given an
         // opportunity to change the parameters and retry the call.
-
-        ble_gap_sec_params_t * p_aux_sec_params = NULL;
-#ifdef BLE_GAP_ROLE_PERIPH
-        p_aux_sec_params = (role == BLE_GAP_ROLE_PERIPH) ? p_sec_params : NULL;
-#endif // BLE_GAP_ROLE_PERIPH
-
-        err_code = sd_ble_gap_sec_params_reply(conn_handle, sec_status, p_aux_sec_params, &sec_keyset);
+        if (role == BLE_GAP_ROLE_PERIPH)
+        {
+            err_code = sd_ble_gap_sec_params_reply(conn_handle, sec_status, p_sec_params, &sec_keyset);
+        }
+        else
+        {
+            err_code = sd_ble_gap_sec_params_reply(conn_handle, sec_status, NULL, &sec_keyset);
+        }
     }
 
     return err_code;
@@ -1017,7 +1010,6 @@ static void sec_request_process(ble_gap_evt_t const * p_gap_evt)
 #endif // PM_CENTRAL_ENABLED
 
 
-#ifdef BLE_GAP_ROLE_PERIPH
 /**@brief Function for asking the central to secure the link. See @ref smd_link_secure for more info.
  */
 static ret_code_t link_secure_peripheral(uint16_t conn_handle, ble_gap_sec_params_t * p_sec_params)
@@ -1031,7 +1023,6 @@ static ret_code_t link_secure_peripheral(uint16_t conn_handle, ble_gap_sec_param
 
     return err_code;
 }
-#endif
 
 
 ret_code_t smd_link_secure(uint16_t conn_handle,
@@ -1049,10 +1040,8 @@ ret_code_t smd_link_secure(uint16_t conn_handle,
             return link_secure_central(conn_handle, p_sec_params, force_repairing);
 #endif
 
-#ifdef BLE_GAP_ROLE_PERIPH
         case BLE_GAP_ROLE_PERIPH:
             return link_secure_peripheral(conn_handle, p_sec_params);
-#endif // BLE_GAP_ROLE_PERIPH
 
         default:
             return BLE_ERROR_INVALID_CONN_HANDLE;
@@ -1072,11 +1061,9 @@ void smd_ble_evt_handler(ble_evt_t const * p_ble_evt)
             sec_params_request_process(&(p_ble_evt->evt.gap_evt));
             break;
 
-#ifdef BLE_GAP_ROLE_PERIPH
         case BLE_GAP_EVT_SEC_INFO_REQUEST:
             sec_info_request_process(&(p_ble_evt->evt.gap_evt));
             break;
-#endif // BLE_GAP_ROLE_PERIPH
 
 #if PM_CENTRAL_ENABLED
         case BLE_GAP_EVT_SEC_REQUEST:

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2017 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -43,6 +43,10 @@
 
 #include "nordic_common.h"
 #include "nrf_crypto_error.h"
+
+#ifdef MBS_INTEGRATION
+#include "mbsArraySize.h"
+#endif
 
 typedef struct
 {

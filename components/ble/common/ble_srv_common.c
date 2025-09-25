@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2012 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2012 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -156,6 +156,12 @@ uint32_t characteristic_add(uint16_t                   service_handle,
         BLE_GAP_CONN_SEC_MODE_SET_OPEN(&cccd_md.read_perm);
 
         cccd_md.vloc       = BLE_GATTS_VLOC_STACK;
+
+#ifdef MBS_INTEGRATION
+#ifdef HOME_KIT_INTEGRATION
+        cccd_md.wr_auth    = (p_char_props->is_defered_write ? 1 : 0);
+#endif /* HOME_KIT_INTEGRATION */
+#endif /* MBS_INTEGRATION */
 
         char_md.p_cccd_md  = &cccd_md;
     }

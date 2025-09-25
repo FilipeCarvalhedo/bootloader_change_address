@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2014 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -72,7 +72,7 @@ extern "C" {
 #define _PRIO_APP_LOW       3
 #define _PRIO_APP_LOWEST    3
 #define _PRIO_THREAD        4
-#elif __CORTEX_M >= (0x04U)
+#elif __CORTEX_M == (0x04U)
 #define _PRIO_SD_HIGH       0
 #define _PRIO_SD_MID        1
 #define _PRIO_APP_HIGH      2
@@ -92,20 +92,20 @@ extern "C" {
 typedef enum
 {
 #ifndef SOFTDEVICE_PRESENT
-    APP_IRQ_PRIORITY_HIGHEST = _PRIO_SD_HIGH,     /**< Running in Application Highest interrupt level. */
+    APP_IRQ_PRIORITY_HIGHEST = _PRIO_SD_HIGH,
 #else
-    APP_IRQ_PRIORITY_HIGHEST = _PRIO_APP_HIGH,    /**< Running in Application Highest interrupt level. */
+    APP_IRQ_PRIORITY_HIGHEST = _PRIO_APP_HIGH,
 #endif
-    APP_IRQ_PRIORITY_HIGH    = _PRIO_APP_HIGH,    /**< Running in Application High interrupt level. */
+    APP_IRQ_PRIORITY_HIGH    = _PRIO_APP_HIGH,
 #ifndef SOFTDEVICE_PRESENT
-    APP_IRQ_PRIORITY_MID     = _PRIO_SD_LOW,      /**< Running in Application Middle interrupt level. */
+    APP_IRQ_PRIORITY_MID     = _PRIO_SD_LOW,
 #else
-    APP_IRQ_PRIORITY_MID     = _PRIO_APP_MID,     /**< Running in Application Middle interrupt level. */
+    APP_IRQ_PRIORITY_MID     = _PRIO_APP_MID,
 #endif
-    APP_IRQ_PRIORITY_LOW_MID = _PRIO_APP_LOW_MID, /**< Running in Application Middle Low interrupt level. */
-    APP_IRQ_PRIORITY_LOW     = _PRIO_APP_LOW,     /**< Running in Application Low interrupt level. */
-    APP_IRQ_PRIORITY_LOWEST  = _PRIO_APP_LOWEST,  /**< Running in Application Lowest interrupt level. */
-    APP_IRQ_PRIORITY_THREAD  = _PRIO_THREAD       /**< Running in Thread Mode. */
+    APP_IRQ_PRIORITY_LOW_MID = _PRIO_APP_LOW_MID,
+    APP_IRQ_PRIORITY_LOW     = _PRIO_APP_LOW,
+    APP_IRQ_PRIORITY_LOWEST  = _PRIO_APP_LOWEST,
+    APP_IRQ_PRIORITY_THREAD  = _PRIO_THREAD     /**< "Interrupt level" when running in Thread Mode. */
 } app_irq_priority_t;
 //lint -restore
 
@@ -151,7 +151,11 @@ typedef enum
 #define PACKED(TYPE) __packed TYPE
 #define PACKED_STRUCT PACKED(struct)
 #elif defined   ( __GNUC__ )
+#ifdef MBS_INTEGRATION
+#ifndef PACKED
 #define PACKED __attribute__((packed))
+#endif
+#endif
 #define PACKED_STRUCT struct PACKED
 #elif defined (__ICCARM__)
 #define PACKED_STRUCT __packed struct
@@ -255,7 +259,10 @@ void app_util_critical_region_exit (uint8_t nested);
 
 /**@brief Function for finding the current interrupt level.
  *
- * @return   Current interrupt level. See @ref app_irq_priority_t for values.
+ * @return   Current interrupt level.
+ * @retval   APP_IRQ_PRIORITY_HIGH    We are running in Application High interrupt level.
+ * @retval   APP_IRQ_PRIORITY_LOW     We are running in Application Low interrupt level.
+ * @retval   APP_IRQ_PRIORITY_THREAD  We are running in Thread Mode.
  */
 uint8_t current_int_priority_get(void);
 

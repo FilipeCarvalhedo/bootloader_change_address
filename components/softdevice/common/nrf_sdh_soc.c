@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2017 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -39,7 +39,7 @@
  */
 
 #include "sdk_common.h"
-#if NRF_MODULE_ENABLED(NRF_SDH_SOC)
+#if !defined(MBS_INTEGRATION) && NRF_MODULE_ENABLED(NRF_SDH_SOC)
 
 #include "nrf_sdh_soc.h"
 
@@ -115,4 +115,4 @@ NRF_SDH_STACK_OBSERVER(m_nrf_sdh_soc_evts_poll, NRF_SDH_SOC_STACK_OBSERVER_PRIO)
     .p_context = NULL,
 };
 
-#endif // NRF_MODULE_ENABLED(NRF_SDH_SOC)
+#endif // !defined(MBS_INTEGRATION) && NRF_MODULE_ENABLED(NRF_SDH_SOC)

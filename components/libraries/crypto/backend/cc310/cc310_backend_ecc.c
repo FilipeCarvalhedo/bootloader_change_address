@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2018 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -127,11 +127,15 @@ ret_code_t nrf_crypto_backend_cc310_ecc_public_key_convert(
         return NRF_ERROR_CRYPTO_BUSY;
     }
 
+    cc310_backend_enable();
+
     crys_error = CRYS_ECPKI_BuildPublKeyPartlyCheck(p_domain,
                                                     ucompressed_key,
                                                     p_info->raw_public_key_size + 1,
                                                     &p_pub->key.cc310_public_key,
                                                     p_temp_data);
+
+    cc310_backend_disable();
 
     cc310_backend_mutex_unlock();
 
@@ -173,6 +177,8 @@ ret_code_t nrf_crypto_backend_cc310_key_pair_generate(
     mutex_locked = cc310_backend_mutex_trylock();
     VERIFY_TRUE(mutex_locked, NRF_ERROR_CRYPTO_BUSY);
 
+    cc310_backend_enable();
+
     crys_error = CRYS_ECPKI_GenKeyPair(p_context,
                                        nrf_crypto_backend_cc310_rng,
                                        p_domain,
@@ -180,6 +186,7 @@ ret_code_t nrf_crypto_backend_cc310_key_pair_generate(
                                        &p_pub->key.cc310_public_key,
                                        &p_ctx->temp_data,
                                        NULL);
+    cc310_backend_disable();
 
     cc310_backend_mutex_unlock();
 
@@ -342,6 +349,8 @@ ret_code_t nrf_crypto_backend_cc310_curve25519_key_pair_generate(
     mutex_locked = cc310_backend_mutex_trylock();
     VERIFY_TRUE(mutex_locked, NRF_ERROR_CRYPTO_BUSY);
 
+    cc310_backend_enable();
+
     crys_error = CRYS_ECMONT_KeyPair(p_pub->key,
                                      &pub_key_size,
                                      p_prv->key,
@@ -349,6 +358,8 @@ ret_code_t nrf_crypto_backend_cc310_curve25519_key_pair_generate(
                                      p_context,
                                      nrf_crypto_backend_cc310_rng,
                                      &p_ctx->temp_data);
+
+    cc310_backend_disable();
 
     cc310_backend_mutex_unlock();
 
@@ -419,6 +430,8 @@ ret_code_t nrf_crypto_backend_cc310_ed25519_key_pair_generate(
     mutex_locked = cc310_backend_mutex_trylock();
     VERIFY_TRUE(mutex_locked, NRF_ERROR_CRYPTO_BUSY);
 
+    cc310_backend_enable();
+
     crys_error = CRYS_ECEDW_KeyPair(p_prv->key,
                                     &prv_key_size,
                                     p_pub->key,
@@ -426,6 +439,8 @@ ret_code_t nrf_crypto_backend_cc310_ed25519_key_pair_generate(
                                     p_context,
                                     nrf_crypto_backend_cc310_rng,
                                     &p_ctx->temp_data);
+
+    cc310_backend_disable();
 
     cc310_backend_mutex_unlock();
 
@@ -461,6 +476,8 @@ ret_code_t nrf_crypto_backend_cc310_ed25519_private_key_from_raw(
         return NRF_ERROR_CRYPTO_ALLOC_FAILED;
     }
 
+    cc310_backend_enable();
+
     crys_error = CRYS_ECEDW_SeedKeyPair(p_raw_data,
                                         CRYS_ECEDW_ORD_SIZE_IN_BYTES,
                                         p_internal_prv_key->key,
@@ -468,6 +485,8 @@ ret_code_t nrf_crypto_backend_cc310_ed25519_private_key_from_raw(
                                         pub_key_dummy,
                                         &pub_key_size,
                                         p_temp_data);
+
+    cc310_backend_disable();
 
     cc310_backend_mutex_unlock();
 

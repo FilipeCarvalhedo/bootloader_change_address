@@ -222,7 +222,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 
 # Debug UART configuration - Set to OFF to disable
-set(BOOTLOADER_DEBUG_UART_ENABLED OFF)
+set(BOOTLOADER_DEBUG_UART_ENABLED ON)
 
 # Conditional debug sources and definitions
 if(BOOTLOADER_DEBUG_UART_ENABLED)
@@ -297,7 +297,7 @@ add_custom_target(flash
 )
 
 add_custom_target(flash_softdevice
-    COMMAND nrfjprog -f nrf52 --program ${SDK_ROOT}/components/softdevice/s140/hex/s140_nrf52_7.2.0_softdevice.hex --sectorerase
+    COMMAND nrfjprog -f nrf52 --program ${SDK_ROOT}/components/softdevice/s140/hex/s140_nrf52_7.0.1_softdevice.hex --sectorerase
     COMMAND nrfjprog -f nrf52 --reset
     COMMENT "Flashing the SoftDevice"
 )

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2018 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -264,11 +264,13 @@ ret_code_t nrf_crypto_rng_init(nrf_crypto_rng_context_t       * p_context,
 
     // Check if the stack has overflowed. This can typically happen if the application has put the
     // ~6 kB large temp buffer for CC310 on the stack.
+#ifndef MBS_INTEGRATION
     if (nrf_stack_info_overflowed())
     {
         NRF_LOG_ERROR("Stack overflow detected.");
         return NRF_ERROR_CRYPTO_STACK_OVERFLOW;
     }
+#endif
 
 #if NRF_MODULE_ENABLED(NRF_CRYPTO_RNG_AUTO_INIT)
     VERIFY_TRUE(nrf_crypto_is_initializing(), NRF_ERROR_CRYPTO_NOT_INITIALIZED);

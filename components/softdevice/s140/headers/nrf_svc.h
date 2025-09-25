@@ -68,9 +68,12 @@ extern "C" {
 #else
 #define GCC_CAST_CPP
 #endif
+
+//MBS_INTEGRATION
 #define SVCALL(number, return_type, signature)          \
   _Pragma("GCC diagnostic push")                        \
   _Pragma("GCC diagnostic ignored \"-Wreturn-type\"")   \
+  _Pragma("GCC diagnostic ignored \"-Wunused-parameter\"") \
   __attribute__((naked))                                \
   __attribute__((unused))                               \
   static return_type signature                          \
@@ -81,6 +84,7 @@ extern "C" {
     );                                                  \
   }                                                     \
   _Pragma("GCC diagnostic pop")
+//MBS_INTEGRATION
 
 #elif defined (__ICCARM__)
 #define PRAGMA(x) _Pragma(#x)

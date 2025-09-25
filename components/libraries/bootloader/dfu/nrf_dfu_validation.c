@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2017 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -891,7 +891,7 @@ static bool postvalidate_sd_bl(dfu_init_command_t const  * p_init,
     }
     if (with_bl)
     {
-        if (!boot_validation_extract(&boot_validation_bl, p_init, with_sd ? 1 : 0, bl_start, bl_size, NO_VALIDATION))
+        if (!boot_validation_extract(&boot_validation_bl, p_init, 0, bl_start, bl_size, NO_VALIDATION))
         {
             return false;
         }

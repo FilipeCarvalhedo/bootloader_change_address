@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2018 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -107,6 +107,7 @@ typedef enum
     NRF_BLE_SCAN_EVT_WHITELIST_ADV_REPORT, /**< Send notification to the main application when a device from the whitelist is found. */
     NRF_BLE_SCAN_EVT_NOT_FOUND,            /**< The filter was not matched for the scan data. */
     NRF_BLE_SCAN_EVT_SCAN_TIMEOUT,         /**< Scan timeout. */
+    NRF_BLE_SCAN_EVT_SCAN_REQ_REPORT,      /**< Scan request report. */
     NRF_BLE_SCAN_EVT_CONNECTING_ERROR,     /**< Error occurred when establishing the connection. In this event, an error is passed from the function call @ref sd_ble_gap_connect. */
     NRF_BLE_SCAN_EVT_CONNECTED             /**< Connected to device. */
 } nrf_ble_scan_evt_t;
@@ -191,6 +192,7 @@ typedef struct
     union
     {
         nrf_ble_scan_evt_filter_match_t   filter_match;           /**< Scan filter match. */
+        ble_gap_evt_scan_req_report_t     req_report;             /**< Scan request report parameters. */
         ble_gap_evt_timeout_t             timeout;                /**< Timeout event parameters. */
         ble_gap_evt_adv_report_t const  * p_whitelist_adv_report; /**< Advertising report event parameters for whitelist. */
         ble_gap_evt_adv_report_t const  * p_not_found;            /**< Advertising report event parameters when filter is not found. */
@@ -480,12 +482,10 @@ void nrf_ble_scan_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_scan);
  *          (for example, on a phone screen from left to right), you must use this function to
  *          convert the address to the SoftDevice address type.
  *
- * @note This function does not decode an address type.
- *
- * @param[out] p_gap_addr The Bluetooth Low Energy address.
  * @param[in]  addr       Address to be converted to the SoftDevice address.
+ * @param[out] p_gap_addr The Bluetooth Low Energy address.
  *
- * @retval NRF_ERROR_NULL                 If a NULL pointer is passed as input.
+ * @retval BLE_ERROR_GAP_INVALID_BLE_ADDR If the BLE address type is invalid.
  * @retval NRF_SUCCESS                    If the address is copied and converted successfully.
  */
 ret_code_t nrf_ble_scan_copy_addr_to_sd_gap_addr(ble_gap_addr_t * p_gap_addr,

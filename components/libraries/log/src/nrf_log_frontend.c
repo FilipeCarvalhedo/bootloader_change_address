@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2016 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -75,14 +75,6 @@ NRF_RINGBUF_DEF(m_log_push_ringbuf, NRF_LOG_STR_PUSH_BUFFER_SIZE);
 #define NRF_LOG_MAX_BACKENDS           (32/NRF_LOG_FILTER_BITS_PER_BACKEND)
 #define NRF_LOG_MAX_HEXDUMP            (NRF_LOG_MSGPOOL_ELEMENT_SIZE*NRF_LOG_MSGPOOL_ELEMENT_COUNT/2)
 #define NRF_LOG_INVALID_BACKEND_U32    0xFFFFFFFF
-
-/* Mask is extracted from the structure log_data_t to allow compile time initialization which
- * is needed to allow usage of the logger (logging) before logger is initialized.
- * It cannot be part of the log_data_t because some compilers would put whole log_data_t structure
- * into flash (including buffer) just because one field is initilized.
- */
-static uint32_t m_buffer_mask =  NRF_LOG_BUF_WORDS - 1; // Size of buffer (must be power of 2) presented as mask
-
 /**
  * brief An internal control block of the logger
  *
@@ -93,18 +85,20 @@ static uint32_t m_buffer_mask =  NRF_LOG_BUF_WORDS - 1; // Size of buffer (must 
  */
 typedef struct
 {
-    bool                      autoflush;
     uint32_t                  wr_idx;          // Current write index (never reset)
     uint32_t                  rd_idx;          // Current read index  (never_reset)
+    uint32_t                  mask;            // Size of buffer (must be power of 2) presented as mask
     uint32_t                  buffer[NRF_LOG_BUF_WORDS];
     nrf_log_timestamp_func_t  timestamp_func;  // A pointer to function that returns timestamp
     nrf_log_backend_t const * p_backend_head;
     nrf_atomic_flag_t         log_skipping;
     nrf_atomic_flag_t         log_skipped;
     nrf_atomic_u32_t          log_dropped_cnt;
+    bool                      autoflush;
 } log_data_t;
 
 static log_data_t   m_log_data;
+
 
 NRF_LOG_MODULE_REGISTER();
 
@@ -124,17 +118,17 @@ ret_code_t nrf_log_init(nrf_log_timestamp_func_t timestamp_func, uint32_t timest
         return NRF_ERROR_INVALID_PARAM;
     }
 
+    m_log_data.mask         = NRF_LOG_BUF_WORDS - 1;
+    m_log_data.wr_idx       = 0;
+    m_log_data.rd_idx       = 0;
+    m_log_data.log_skipped  = 0;
+    m_log_data.log_skipping = 0;
     m_log_data.autoflush    = NRF_LOG_DEFERRED ? false : true;
-
     if (NRF_LOG_USES_TIMESTAMP)
     {
         nrf_log_str_formatter_timestamp_freq_set(timestamp_freq);
         m_log_data.timestamp_func = timestamp_func;
     }
-
-#ifdef UNIT_TEST
-    m_buffer_mask = NRF_LOG_BUF_WORDS - 1;
-#endif
 
     ret_code_t err_code = nrf_memobj_pool_init(&log_mempool);
     if (err_code != NRF_SUCCESS)
@@ -351,7 +345,7 @@ static uint32_t log_skip(void)
     (void)nrf_atomic_flag_set(&m_log_data.log_skipping);
 
     uint32_t           rd_idx = m_log_data.rd_idx;
-    uint32_t           mask   = m_buffer_mask;
+    uint32_t           mask   = m_log_data.mask;
     nrf_log_header_t * p_header = (nrf_log_header_t *)&m_log_data.buffer[rd_idx & mask];
     nrf_log_header_t   header;
 
@@ -438,16 +432,6 @@ static inline void std_header_set(uint32_t severity_mid,
     p_header->base.std.in_progress = 0;
 }
 
-#if NRF_LOG_DEFERRED
-/**
- * When using RTOS, application can overide this function so that it could unblock 
- * the task that is responsible for flushing the logs.
- */
-__WEAK void log_pending_hook( void )
-{
-}
-#endif
-
 /**
  * @brief Allocates chunk in a buffer for one entry and injects overflow if
  * there is no room for requested entry.
@@ -465,7 +449,7 @@ static inline bool buf_prealloc(uint32_t content_len, uint32_t * p_wr_idx, bool 
     bool     ret            = true;
     CRITICAL_REGION_ENTER();
     *p_wr_idx = m_log_data.wr_idx;
-    uint32_t available_words = (m_buffer_mask + 1) - (m_log_data.wr_idx - m_log_data.rd_idx);
+    uint32_t available_words = (m_log_data.mask + 1) - (m_log_data.wr_idx - m_log_data.rd_idx);
     while (req_len > available_words)
     {
         UNUSED_RETURN_VALUE(nrf_atomic_u32_add(&m_log_data.log_dropped_cnt, 1));
@@ -473,7 +457,7 @@ static inline bool buf_prealloc(uint32_t content_len, uint32_t * p_wr_idx, bool 
         {
             uint32_t dropped_in_skip = log_skip();
             UNUSED_RETURN_VALUE(nrf_atomic_u32_add(&m_log_data.log_dropped_cnt, dropped_in_skip));
-            available_words = (m_buffer_mask + 1) - (m_log_data.wr_idx - m_log_data.rd_idx);
+            available_words = (m_log_data.mask + 1) - (m_log_data.wr_idx - m_log_data.rd_idx);
         }
         else
         {
@@ -501,7 +485,7 @@ static inline bool buf_prealloc(uint32_t content_len, uint32_t * p_wr_idx, bool 
         }
 
         nrf_log_main_header_t * p_header =
-                   (nrf_log_main_header_t *)&m_log_data.buffer[m_log_data.wr_idx & m_buffer_mask];
+                   (nrf_log_main_header_t *)&m_log_data.buffer[m_log_data.wr_idx & m_log_data.mask];
 
         p_header->raw = invalid_header.raw;
 
@@ -554,7 +538,7 @@ static inline void std_n(uint32_t           severity_mid,
                          uint32_t const *   args,
                          uint32_t           nargs)
 {
-    uint32_t mask   = m_buffer_mask;
+    uint32_t mask   = m_log_data.mask;
     uint32_t wr_idx;
 
     if (buf_prealloc(nargs, &wr_idx, true))
@@ -569,7 +553,6 @@ static inline void std_n(uint32_t           severity_mid,
         }
         std_header_set(severity_mid, p_str, nargs, wr_idx, mask);
     }
-
     if (m_log_data.autoflush)
     {
 #if NRF_LOG_NON_DEFFERED_CRITICAL_REGION_ENABLED
@@ -582,10 +565,6 @@ static inline void std_n(uint32_t           severity_mid,
         CRITICAL_REGION_EXIT();
 #endif // NRF_LOG_NON_DEFFERED_CRITICAL_REGION_ENABLED
     }
-
-#if (NRF_LOG_DEFERRED == 1)
-    log_pending_hook();
-#endif
 
 }
 
@@ -668,7 +647,7 @@ void nrf_log_frontend_hexdump(uint32_t           severity_mid,
                               const void * const p_data,
                               uint16_t           length)
 {
-    uint32_t mask   = m_buffer_mask;
+    uint32_t mask   = m_log_data.mask;
 
     uint32_t wr_idx;
     if (buf_prealloc(CEIL_DIV(length, sizeof(uint32_t)), &wr_idx, false))
@@ -676,7 +655,7 @@ void nrf_log_frontend_hexdump(uint32_t           severity_mid,
         uint32_t header_wr_idx = wr_idx;
         wr_idx += HEADER_SIZE;
 
-        uint32_t space0 = sizeof(uint32_t) * (m_buffer_mask + 1 - (wr_idx & mask));
+        uint32_t space0 = sizeof(uint32_t) * (m_log_data.mask + 1 - (wr_idx & mask));
         if (length <= space0)
         {
             memcpy(&m_log_data.buffer[wr_idx & mask], p_data, length);
@@ -703,6 +682,9 @@ void nrf_log_frontend_hexdump(uint32_t           severity_mid,
         p_header->base.hexdump.len         = length;
         p_header->base.hexdump.type        = HEADER_TYPE_HEXDUMP;
         p_header->base.hexdump.in_progress = 0;
+
+
+
     }
 
     if (m_log_data.autoflush)
@@ -717,10 +699,6 @@ void nrf_log_frontend_hexdump(uint32_t           severity_mid,
         CRITICAL_REGION_EXIT();
 #endif // NRF_LOG_NON_DEFFERED_CRITICAL_REGION_ENABLED
     }
-
-#if (NRF_LOG_DEFERRED == 1)
-    log_pending_hook();
-#endif
 }
 
 
@@ -740,7 +718,7 @@ bool nrf_log_frontend_dequeue(void)
     //It has to be ensured that reading rd_idx occurs after skipped flag is cleared.
     __DSB();
     uint32_t           rd_idx   = m_log_data.rd_idx;
-    uint32_t           mask     = m_buffer_mask;
+    uint32_t           mask     = m_log_data.mask;
     nrf_log_header_t * p_header = (nrf_log_header_t *)&m_log_data.buffer[rd_idx & mask];
     nrf_log_header_t   header;
     nrf_memobj_t *     p_msg_buf = NULL;

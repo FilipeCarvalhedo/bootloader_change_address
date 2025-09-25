@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2014 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -151,7 +151,7 @@ void nrf_free(void * p_buffer);
  */
 void * nrf_realloc(void *p_buffer, uint32_t size);
 
-#if defined(MEM_MANAGER_ENABLE_DIAGNOSTICS) && (MEM_MANAGER_ENABLE_DIAGNOSTICS == 1)
+#ifdef MEM_MANAGER_ENABLE_DIAGNOSTICS
 
 /**@brief Function to print statistics related to memory blocks managed by memory manager.
  *
@@ -164,40 +164,8 @@ void * nrf_realloc(void *p_buffer, uint32_t size);
  */
 void nrf_mem_diagnose(void);
 
-
-/**@brief Function to reset memory block statistics.
- *
- * @details This API resets the statistics of the memory manager.
- *
- */
-void nrf_mem_diagnose_reset(void);
-
-
-/**@brief Macro that will log the mem_manager statistics if MEM_MANAGER_ENABLE_DIAGNOSTICS
- * is enabled
- */
-#define NRF_MEM_MANAGER_DIAGNOSE nrf_mem_diagnose()
-
-
-/*@brief Macro that will reset the mem_manager statisitics if MEM_MANAGER_ENABLE_DIAGNOSTICS
-* is enabled
-*/
-#define NRF_MEM_MANAGER_DIAGNOSE_RESET nrf_mem_diagnose_reset()
-
-#else
-
-/**@brief Macro that will log the mem_manager statistics if MEM_MANAGER_ENABLE_DIAGNOSTICS
- * is enabled
- */
-#define NRF_MEM_MANAGER_DIAGNOSE
-
-
-/*@brief Macro that will reset the mem_manager statisitics if MEM_MANAGER_ENABLE_DIAGNOSTICS
-* is enabled
-*/
-#define NRF_MEM_MANAGER_DIAGNOSE_RESET
-
 #endif // MEM_MANAGER_ENABLE_DIAGNOSTICS
+
 
 #ifdef __cplusplus
 }

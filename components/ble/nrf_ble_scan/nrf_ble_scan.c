@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2018 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -113,6 +113,52 @@ static void nrf_ble_scan_connect_with_target(nrf_ble_scan_t           const * co
 }
 
 
+/**@brief Function for decoding the BLE address type.
+ *
+ * @param[in] p_addr 	The BLE address.
+ *
+ * @return    			Address type, or an error if the address type is incorrect, that is it does not match @ref BLE_GAP_ADDR_TYPES.
+ *
+ */
+static uint16_t nrf_ble_scan_address_type_decode(uint8_t const * p_addr)
+{
+    uint8_t addr_type = p_addr[0];
+
+    // See Bluetooth Core Specification Vol 6, Part B, section 1.3.
+    addr_type  = addr_type >> 6;
+    addr_type &= 0x03;
+
+    // Check address type.
+    switch (addr_type)
+    {
+        case 0:
+        {
+            return BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_NON_RESOLVABLE;
+        }
+
+        case 1:
+        {
+            return BLE_GAP_ADDR_TYPE_PUBLIC;
+        }
+
+        case 2:
+        {
+            return BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE;
+        }
+
+        case 3:
+        {
+            return BLE_GAP_ADDR_TYPE_RANDOM_STATIC;
+        }
+
+        default:
+        {
+            return BLE_ERROR_GAP_INVALID_BLE_ADDR;
+        }
+    }
+}
+
+
 #if (NRF_BLE_SCAN_FILTER_ENABLE == 1)
 #if (NRF_BLE_SCAN_ADDRESS_CNT > 0)
 
@@ -129,14 +175,16 @@ static void nrf_ble_scan_connect_with_target(nrf_ble_scan_t           const * co
 static bool find_peer_addr(ble_gap_evt_adv_report_t const * const p_adv_report,
                            ble_gap_addr_t const                 * p_addr)
 {
-    // Compare addresses.
-    if (memcmp(p_addr->addr,
-               p_adv_report->peer_addr.addr,
-               sizeof(p_adv_report->peer_addr.addr)) == 0)
+    if (p_addr->addr_type == p_adv_report->peer_addr.addr_type)
     {
-        return true;
+        // Compare addresses.
+        if (memcmp(p_addr->addr,
+                   p_adv_report->peer_addr.addr,
+                   sizeof(p_adv_report->peer_addr.addr)) == 0)
+        {
+            return true;
+        }
     }
-
     return false;
 }
 
@@ -182,6 +230,8 @@ static ret_code_t nrf_ble_scan_addr_filter_add(nrf_ble_scan_t * const p_scan_ctx
     ble_gap_addr_t * p_addr_filter = p_scan_ctx->scan_filters.addr_filter.target_addr;
     uint8_t        * p_counter     = &p_scan_ctx->scan_filters.addr_filter.addr_cnt;
     uint8_t          index;
+    uint16_t         addr_type;
+    uint8_t          temp_addr[BLE_GAP_ADDR_LEN];
 
     // If no memory for filter.
     if (*p_counter >= NRF_BLE_SCAN_ADDRESS_CNT)
@@ -198,16 +248,37 @@ static ret_code_t nrf_ble_scan_addr_filter_add(nrf_ble_scan_t * const p_scan_ctx
         }
     }
 
+    // Inverting the address.
+    for (uint8_t i = 0; i < BLE_GAP_ADDR_LEN; i++)
+    {
+        temp_addr[i] = p_addr[(BLE_GAP_ADDR_LEN - 1) - i];
+    }
+
+    // Decode address type.
+    addr_type = nrf_ble_scan_address_type_decode(temp_addr);
+
+    if (addr_type == BLE_ERROR_GAP_INVALID_BLE_ADDR)
+    {
+        return BLE_ERROR_GAP_INVALID_BLE_ADDR;
+    }
+
+    // Add target address to filter.
+    p_addr_filter[*p_counter].addr_type = (uint8_t)addr_type;
+
     for (uint8_t i = 0; i < BLE_GAP_ADDR_LEN; i++)
     {
         p_addr_filter[*p_counter].addr[i] = p_addr[i];
     }
 
-    // Address type is not used so set it to 0.
-    p_addr_filter[*p_counter].addr_type = 0;
+    NRF_LOG_DEBUG("Filter set on address type %i, address 0x",
+                  p_addr_filter[*p_counter].addr_type);
 
-    NRF_LOG_DEBUG("Filter set on address 0x");
-    NRF_LOG_HEXDUMP_DEBUG(p_addr_filter[*p_counter].addr, BLE_GAP_ADDR_LEN);
+    for (index = 0; index < BLE_GAP_ADDR_LEN; index++)
+    {
+        NRF_LOG_DEBUG("%x", p_addr_filter[*p_counter].addr[index]);
+    }
+
+    NRF_LOG_DEBUG("\n\r");
 
     // Increase the address filter counter.
     *p_counter += 1;
@@ -973,13 +1044,8 @@ static void nrf_ble_scan_default_param_set(nrf_ble_scan_t * const p_scan_ctx)
 {
     // Set the default parameters.
     p_scan_ctx->scan_params.active        = 1;
-#if (NRF_SD_BLE_API_VERSION > 7)
-    p_scan_ctx->scan_params.interval_us   = NRF_BLE_SCAN_SCAN_INTERVAL * UNIT_0_625_MS;
-    p_scan_ctx->scan_params.window_us     = NRF_BLE_SCAN_SCAN_WINDOW * UNIT_0_625_MS;
-#else
     p_scan_ctx->scan_params.interval      = NRF_BLE_SCAN_SCAN_INTERVAL;
     p_scan_ctx->scan_params.window        = NRF_BLE_SCAN_SCAN_WINDOW;
-#endif // #if (NRF_SD_BLE_API_VERSION > 7)
     p_scan_ctx->scan_params.timeout       = NRF_BLE_SCAN_SCAN_DURATION;
     p_scan_ctx->scan_params.filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL;
     p_scan_ctx->scan_params.scan_phys     = BLE_GAP_PHY_1MBPS;
@@ -1027,6 +1093,30 @@ static void nrf_ble_scan_on_timeout(nrf_ble_scan_t const * const p_scan_ctx,
 
             p_scan_ctx->evt_handler(&scan_evt);
         }
+    }
+}
+
+
+/**@brief Function for calling the BLE_GAP_EVT_SCAN_REQ_REPORT event.
+ *
+ * @param[in] p_scan_ctx  Pointer to the Scanning Module instance.
+ * @param[in] p_gap       GAP event structure.
+ */
+static void nrf_ble_scan_on_req_report(nrf_ble_scan_t const * const p_scan_ctx,
+                                       ble_gap_evt_t  const * const p_gap)
+{
+    ble_gap_evt_scan_req_report_t const * p_req_report = &p_gap->params.scan_req_report;
+    scan_evt_t                            scan_evt;
+
+    memset(&scan_evt, 0, sizeof(scan_evt));
+
+    if (p_scan_ctx->evt_handler != NULL)
+    {
+        scan_evt.scan_evt_id       = NRF_BLE_SCAN_EVT_SCAN_REQ_REPORT;
+        scan_evt.p_scan_params     = &p_scan_ctx->scan_params;
+        scan_evt.params.req_report = *p_req_report;
+
+        p_scan_ctx->evt_handler(&scan_evt);
     }
 }
 
@@ -1183,7 +1273,16 @@ static void nrf_ble_scan_on_connected_evt(nrf_ble_scan_t const * const p_scan_ct
 ret_code_t nrf_ble_scan_copy_addr_to_sd_gap_addr(ble_gap_addr_t * p_gap_addr,
                                                  const uint8_t    addr[BLE_GAP_ADDR_LEN])
 {
-    VERIFY_PARAM_NOT_NULL(p_gap_addr);
+    uint16_t addr_type;
+
+    addr_type = nrf_ble_scan_address_type_decode(addr);
+
+    if (addr_type == BLE_ERROR_GAP_INVALID_BLE_ADDR)
+    {
+        return BLE_ERROR_GAP_INVALID_BLE_ADDR;
+    }
+
+    p_gap_addr->addr_type = addr_type;
 
     for (uint8_t i = 0; i < BLE_GAP_ADDR_LEN; ++i)
     {
@@ -1208,6 +1307,11 @@ void nrf_ble_scan_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_contex)
 
         case BLE_GAP_EVT_TIMEOUT:
             nrf_ble_scan_on_timeout(p_scan_data, p_gap_evt);
+            break;
+
+        case BLE_GAP_EVT_SCAN_REQ_REPORT:
+            nrf_ble_scan_on_req_report(p_scan_data, p_gap_evt);
+
             break;
 
         case BLE_GAP_EVT_CONNECTED:

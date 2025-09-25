@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2017 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -57,6 +57,16 @@ extern "C" {
 /**@internal @brief Macro definition for largest possible input data on CC310 DMA. */
 #define CC310_MAX_LENGTH_DMA_OPERATIONS         (0xFFFF)
 #define CC310_MAX_LENGTH_DMA_AES_OPERATIONS     (0xFFF0)
+
+
+/**@internal @brief Function to enable CC310 (in HW)
+ */
+void cc310_backend_enable(void);
+
+
+/**@internal @brief Function to disable CC310 (in HW)
+ */
+void cc310_backend_disable(void);
 
 
 /**@internal @brief Function to pass to CC310 library API as random number generator. It uses

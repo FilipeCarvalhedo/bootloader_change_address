@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2018 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -48,6 +48,14 @@
 #include "cc310_backend_mutex.h"
 #include "nrf_crypto_rng.h"
 
+/**@internal @brief Function to enable CC310 (in HW)
+ */
+void cc310_backend_enable(void);
+
+
+/**@internal @brief Function to disable CC310 (in HW)
+ */
+void cc310_backend_disable(void);
 
 static uint32_t init_result_get(uint32_t crys_error)
 {
@@ -73,8 +81,14 @@ static ret_code_t cc310_backend_init(void)
 
     cc310_backend_mutex_init();
 
+    // Enable the CC310 HW.
+    NRF_CRYPTOCELL->ENABLE = 1;
+
     // Initialize the CC310 run-time library
     crys_error = SaSi_LibInit();
+
+    // Shut down CC310 after initialization.
+    NRF_CRYPTOCELL->ENABLE = 0;
 
     ret_val = init_result_get(crys_error);
     VERIFY_SUCCESS(ret_val);
@@ -116,7 +130,13 @@ static ret_code_t cc310_backend_uninit(void)
 
 #endif // NRF_CRYPTO_RNG_AUTO_INIT_ENABLED
 
+    // Initialize the CC310 HW to do shutdown.
+    NRF_CRYPTOCELL->ENABLE = 1;
+
     SaSi_LibFini();
+
+    // Shut down CC310 after shutdown.
+    NRF_CRYPTOCELL->ENABLE = 0;
 
     return NRF_SUCCESS;
 }

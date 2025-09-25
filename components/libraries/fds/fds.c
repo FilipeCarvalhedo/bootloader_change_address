@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2015 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -60,6 +60,16 @@
 
 #if (FDS_CRC_CHECK_ON_READ)
 #include "crc16.h"
+#endif
+
+#ifdef MBS_INTEGRATION
+#include "mbsAssert.h"
+
+extern size_t __STORAGE_DATA_START__[];
+extern size_t __STORAGE_DATA_END__[];
+
+#define STORAGE_DATA_START_ADDR             ( (size_t) ( __STORAGE_DATA_START__ ) )
+#define STORAGE_DATA_END_ADDR               ( (size_t) ( __STORAGE_DATA_END__ ) )
 #endif
 
 
@@ -1092,9 +1102,6 @@ static void gc_swap_pages(void)
     // Keep the offset for this page, but reset it for the swap.
     m_pages[m_gc.cur_page].write_offset = m_swap_page.write_offset;
     m_swap_page.write_offset            = FDS_PAGE_TAG_SIZE;
-
-    // Page has been garbage collected
-    m_pages[m_gc.cur_page].can_gc = false;
 }
 
 
@@ -1194,6 +1201,9 @@ static ret_code_t init_execute(uint32_t prev_ret, fds_op_t * const p_op)
         {
             p_op->init.step       = FDS_OP_INIT_TAG_SWAP;
 
+            // When promoting the swap, keep the write_offset set by pages_init().
+            ret = page_tag_write_data(m_swap_page.p_addr);
+
             uint16_t const         gc         = m_gc.cur_page;
             uint32_t const * const p_old_swap = m_swap_page.p_addr;
 
@@ -1206,11 +1216,6 @@ static ret_code_t init_execute(uint32_t prev_ret, fds_op_t * const p_op)
             m_swap_page.write_offset = FDS_PAGE_TAG_SIZE;
 
             m_pages[gc].page_type = FDS_PAGE_DATA;
-
-            // Promote the old swap page to data, but do this at the end
-            // because we can re-enter this function; we must update have
-            // updated the page in RAM before that.
-            ret = page_tag_write_data(p_old_swap);
         } break;
 
         default:
@@ -1655,7 +1660,8 @@ ret_code_t fds_register(fds_cb_t cb)
     return ret;
 }
 
-
+#ifdef MBS_INTEGRATION
+#else
 static uint32_t flash_end_addr(void)
 {
     uint32_t const bootloader_addr = BOOTLOADER_ADDRESS;
@@ -1674,19 +1680,37 @@ static uint32_t flash_end_addr(void)
 
     return end_addr - (FDS_PHY_PAGES_RESERVED * FDS_PHY_PAGE_SIZE * sizeof(uint32_t));
 }
+#endif
 
 
 static void flash_bounds_set(void)
 {
     uint32_t flash_size  = (FDS_PHY_PAGES * FDS_PHY_PAGE_SIZE * sizeof(uint32_t));
+#ifdef MBS_INTEGRATION
+    #ifndef FDS_START_ADDRESS
+        #error Please define FDS_START_ADDRESS (FDS_VIRTUAL_PAGES_RESERVED is not used in MBS implementation).
+    #endif
+    /* Make sure that address is aligned to start of flash memory page */
+    mbsStaticAssert( 0 == ( FDS_START_ADDRESS & 0xFFF ) );
+    mbsAssert( FDS_START_ADDRESS >= STORAGE_DATA_START_ADDR );
+    mbsAssert( ( FDS_START_ADDRESS + flash_size ) <= STORAGE_DATA_END_ADDR );
+
+    m_fs.start_addr = FDS_START_ADDRESS;
+    m_fs.end_addr   = FDS_START_ADDRESS + flash_size;
+#else
     m_fs.end_addr   = flash_end_addr();
     m_fs.start_addr = m_fs.end_addr - flash_size;
+#endif
 }
 
 
 static ret_code_t flash_subsystem_init(void)
 {
     flash_bounds_set();
+
+#ifdef MBS_INTEGRATION
+    m_fs.evt_handler = fs_event_handler;
+#endif
 
     #if   (FDS_BACKEND == NRF_FSTORAGE_SD)
         return nrf_fstorage_init(&m_fs, &nrf_fstorage_sd, NULL);
@@ -1745,8 +1769,6 @@ ret_code_t fds_init(void)
     {
         case NO_PAGES:
         case NO_SWAP:
-            m_flags.initialized  = false;
-            m_flags.initializing = false;
             return FDS_ERR_NO_PAGES;
 
         case ALREADY_INSTALLED:

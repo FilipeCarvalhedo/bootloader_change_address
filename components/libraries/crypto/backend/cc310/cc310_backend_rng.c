@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2018 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -154,8 +154,26 @@ ret_code_t nrf_crypto_rng_backend_init(void * const p_context,
     mutex_locked = cc310_backend_mutex_trylock();
     VERIFY_TRUE(mutex_locked, NRF_ERROR_CRYPTO_BUSY);
 
+    cc310_backend_enable();
+
+#ifdef MBS_INTEGRATION
+    /* Read the current basepri value */
+    uint32_t prevBasepri = __get_BASEPRI();
+
+    /* Mask (disable) all interrupts with priority greater or equal to 1 */
+    __set_BASEPRI( 1 << ( 8 - __NVIC_PRIO_BITS) );
+#endif /* MBS_INTEGRATION */
+
     err_code = CRYS_RndInit(&p_ctx->crys_rnd_state, p_work_buffer);
+
+#ifdef MBS_INTEGRATION
+    /* Restore the previous basepri */
+    __set_BASEPRI(prevBasepri);
+#endif /* MBS_INTEGRATION */
+
     ret_val = result_get(err_code);
+
+    cc310_backend_disable();
 
     cc310_backend_mutex_unlock();
 
@@ -175,7 +193,11 @@ ret_code_t nrf_crypto_rng_backend_uninit(void   * const p_context)
     mutex_locked = cc310_backend_mutex_trylock();
     VERIFY_TRUE(mutex_locked, NRF_ERROR_CRYPTO_BUSY);
 
+    cc310_backend_enable();
+
     err_code = CRYS_RND_UnInstantiation(p_crys_rnd_state);
+
+    cc310_backend_disable();
 
     ret_val = result_get(err_code);
 
@@ -202,7 +224,11 @@ ret_code_t nrf_crypto_rng_backend_vector_generate(void      * const p_context,
         VERIFY_TRUE(mutex_locked, NRF_ERROR_CRYPTO_BUSY);
     }
 
+    cc310_backend_enable();
+
     err_code = CRYS_RND_GenerateVector(p_crys_rnd_state, size, p_target);
+
+    cc310_backend_disable();
 
     ret_val = result_get(err_code);
 
@@ -233,6 +259,8 @@ ret_code_t nrf_crypto_rng_backend_reseed(void   * const p_context,
     mutex_locked = cc310_backend_mutex_trylock();
     VERIFY_TRUE(mutex_locked, NRF_ERROR_CRYPTO_BUSY);
 
+    cc310_backend_enable();
+
     if (size > 0)
     {
         err_code = CRYS_RND_AddAdditionalInput(p_crys_rnd_state, p_input_data, size);
@@ -247,6 +275,7 @@ ret_code_t nrf_crypto_rng_backend_reseed(void   * const p_context,
     ret_val = result_get(err_code);
 
 exit:
+    cc310_backend_disable();
     cc310_backend_mutex_unlock();
     return ret_val;
 }

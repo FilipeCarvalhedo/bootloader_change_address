@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2012 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2012 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -115,12 +115,14 @@ extern "C" {
             (MS) * (uint64_t)APP_TIMER_CLOCK_FREQ,         \
             1000 * (APP_TIMER_CONFIG_RTC_FREQUENCY + 1)))
 #else
+#ifdef MBS_INTEGRATION
+/* include FreeRTOSConfig creates as circular include loop, not needed. */
+#else
 #include "FreeRTOSConfig.h"
+#endif // MBS_INTEGRATION
 #define APP_TIMER_TICKS(MS) (uint32_t)ROUNDED_DIV((MS)*configTICK_RATE_HZ,1000)
 #endif
 
-/** @brief Invalid value used to indicate that timer is idle. */
-#define APP_TIMER_IDLE_VAL 0xFFFFFFFFFFFFFFFFULL
 
 /**
  * @brief Create a timer identifier and statically allocate memory for the timer.
@@ -139,11 +141,12 @@ typedef void (*app_timer_timeout_handler_t)(void * p_context);
 typedef struct
 {
     nrf_sortlist_item_t         list_item;     /**< Token used by sortlist. */
-    uint64_t                    end_val;       /**< RTC counter value when timer expires or @ref APP_TIMER_IDLE_VAL. */
+    uint64_t                    end_val;       /**< RTC counter value when timer expires. */
     uint32_t                    repeat_period; /**< Repeat period (0 if single shot mode). */
     app_timer_timeout_handler_t handler;       /**< User handler. */
     void *                      p_context;     /**< User context. */
     NRF_LOG_INSTANCE_PTR_DECLARE(p_log)        /**< Pointer to instance of the logger object (Conditionally compiled). */
+    volatile bool               active;        /**< Flag indicating that timer is active. */
 } app_timer_t;
 
 /**@brief Timer ID type.
@@ -158,7 +161,7 @@ typedef app_timer_t * app_timer_id_t;
                               APP_TIMER_CONFIG_LOG_ENABLED ?                                  \
                                          APP_TIMER_CONFIG_LOG_LEVEL : NRF_LOG_SEVERITY_NONE); \
     static app_timer_t CONCAT_2(timer_id,_data) = {                                           \
-            .end_val = APP_TIMER_IDLE_VAL,                                                    \
+            .active = false,                                                                  \
             NRF_LOG_INSTANCE_PTR_INIT(p_log, APP_TIMER_LOG_NAME, timer_id)                    \
     };                                                                                        \
     static const app_timer_id_t timer_id = &CONCAT_2(timer_id,_data)
@@ -243,12 +246,6 @@ ret_code_t app_timer_create(app_timer_id_t const *      p_timer_id,
 ret_code_t app_timer_start(app_timer_id_t timer_id, uint32_t timeout_ticks, void * p_context);
 
 /**@brief Function for stopping the specified timer.
- *
- * @note If stop is called from the thread context or interrupt context with priority
- * less or equal than app timer interrupt priority (RTC1), timer expiration handler
- * will not be called followed stop call. However, stopping timer from higher priority
- * interrupt may interrupt expiry process. In that case, handler may still be called
- * after stop.
  *
  * @param[in]  timer_id                  Timer identifier.
  *

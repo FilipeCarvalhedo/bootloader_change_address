@@ -1,149 +1,133 @@
 /**
- * @file bootloader_debug_uart.c
- * @brief Bit-banged UART debug library matching ble_uart implementation
+ * Copyright (c) 2023, Nordic Semiconductor ASA
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form, except as embedded into a Nordic
+ *    Semiconductor ASA integrated circuit in a product or a software update for
+ *    such product, must reproduce the above copyright notice, this list of
+ *    conditions and the following disclaimer in the documentation and/or other
+ *    materials provided with the distribution.
+ *
+ * 3. Neither the name of Nordic Semiconductor ASA nor the names of its
+ *    contributors may be used to endorse or promote products derived from this
+ *    software without specific prior written permission.
+ *
+ * 4. This software, with or without modification, must only be used with a
+ *    Nordic Semiconductor ASA integrated circuit.
+ *
+ * 5. Any software provided in binary form under this license must not be reverse
+ *    engineered, decompiled, modified and/or disassembled.
+ *
+ * THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS
+ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
 #include "bootloader_debug_uart.h"
 #include "nrf_gpio.h"
 #include "nrf_delay.h"
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 
-#define DEBUG_UART_PIN          4                                           /**< P0.04 for debug UART output */
-#define DEBUG_UART_BAUD         9600                                        /**< 9600 baud for reliable communication */
-#define DEBUG_UART_BIT_TIME_US  (1000000 / DEBUG_UART_BAUD)                /**< Bit time in microseconds (~104us) */
+// Debug UART configuration
+#define DEBUG_UART_PIN                      4                                       /**< P0.04 for debug UART output */
+#define DEBUG_UART_BAUD                     9600                                    /**< 9600 baud for reliable communication */
+#define DEBUG_UART_BIT_TIME_US              (1000000 / DEBUG_UART_BAUD)            /**< Bit time in microseconds (~104us) */
 
-static bool uart_initialized = false;
+static bool m_uart_initialized = false;
 
 void bootloader_debug_uart_init(void)
 {
-#if BOOTLOADER_DEBUG_UART_ENABLED
-    if (uart_initialized) {
-        return;
-    }
+    if (m_uart_initialized) return;
     
-    // Configure pin as output, start HIGH (idle state) - SAME AS BLE_UART
+    // Configure pin as output, initially high (idle state)
     nrf_gpio_cfg_output(DEBUG_UART_PIN);
     nrf_gpio_pin_set(DEBUG_UART_PIN);
     
-    // Wait to ensure line is stable - SAME AS BLE_UART
-    nrf_delay_ms(10);
+    // Brief delay to stabilize
+    nrf_delay_us(DEBUG_UART_BIT_TIME_US * 10);
     
-    uart_initialized = true;
-    
-    // Also configure LED for visual feedback
-    nrf_gpio_cfg_output(13);  // LED 1
-    nrf_gpio_pin_clear(13);   // LED ON
-    
-    // Send test message - SAME PATTERN AS BLE_UART
-    bootloader_debug_uart_puts("=== BOOTLOADER DEBUG UART ===\r\n");
-    bootloader_debug_uart_puts("Bit-banged @ 9600 baud\r\n");
-    bootloader_debug_uart_puts("P0.04 - Same as ble_uart\r\n");
-    bootloader_debug_uart_puts("Testing 1-2-3...\r\n\r\n");
-    
-    nrf_gpio_pin_set(13);  // LED OFF when done
-#endif // BOOTLOADER_DEBUG_UART_ENABLED
+    m_uart_initialized = true;
 }
 
-void bootloader_debug_uart_putc(char c)
+void bootloader_debug_uart_putc(char ch)
 {
-#if BOOTLOADER_DEBUG_UART_ENABLED
-    if (!uart_initialized) {
-        return;
+    if (!m_uart_initialized) {
+        bootloader_debug_uart_init();
     }
     
-    uint8_t data = (uint8_t)c;
+    uint32_t data = ch;
     
-    // Start bit (LOW) - SAME AS BLE_UART
+    // Start bit (low)
     nrf_gpio_pin_clear(DEBUG_UART_PIN);
     nrf_delay_us(DEBUG_UART_BIT_TIME_US);
     
-    // Data bits (LSB first) - SAME AS BLE_UART
+    // 8 data bits (LSB first)
     for (int i = 0; i < 8; i++) {
         if (data & (1 << i)) {
-            nrf_gpio_pin_set(DEBUG_UART_PIN);    // HIGH for '1'
+            nrf_gpio_pin_set(DEBUG_UART_PIN);
         } else {
-            nrf_gpio_pin_clear(DEBUG_UART_PIN);  // LOW for '0'
+            nrf_gpio_pin_clear(DEBUG_UART_PIN);
         }
         nrf_delay_us(DEBUG_UART_BIT_TIME_US);
     }
     
-    // Stop bit (HIGH) - SAME AS BLE_UART
+    // Stop bit (high)
     nrf_gpio_pin_set(DEBUG_UART_PIN);
     nrf_delay_us(DEBUG_UART_BIT_TIME_US);
-#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
 void bootloader_debug_uart_puts(const char* str)
 {
-#if BOOTLOADER_DEBUG_UART_ENABLED
-    if (!str || !uart_initialized) {
-        return;
-    }
+    if (!str) return;
     
-    while(*str) {
+    while (*str) {
         bootloader_debug_uart_putc(*str++);
-        // Small delay between characters for reliability - SAME AS BLE_UART
-        nrf_delay_ms(1);
     }
-#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
-void bootloader_debug_uart_hex(uint32_t value)
+void bootloader_debug_uart_printf(const char* fmt, ...)
 {
-#if BOOTLOADER_DEBUG_UART_ENABLED
-    if (!uart_initialized) {
-        return;
-    }
+    char buffer[256];
+    va_list args;
     
-    const char hex[] = "0123456789ABCDEF";
-    bootloader_debug_uart_puts("0x");
+    va_start(args, fmt);
+    int len = vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
     
-    for(int i = 7; i >= 0; i--) {
-        bootloader_debug_uart_putc(hex[(value >> (i*4)) & 0xF]);
+    if (len > 0 && len < sizeof(buffer)) {
+        bootloader_debug_uart_puts(buffer);
     }
-#endif // BOOTLOADER_DEBUG_UART_ENABLED
-}
-
-void bootloader_debug_uart_dec(uint32_t value)
-{
-#if BOOTLOADER_DEBUG_UART_ENABLED
-    if (!uart_initialized) {
-        return;
-    }
-    
-    if (value == 0) {
-        bootloader_debug_uart_putc('0');
-        return;
-    }
-    
-    char buffer[12];
-    int pos = 0;
-    
-    while (value > 0) {
-        buffer[pos++] = '0' + (value % 10);
-        value /= 10;
-    }
-    
-    for (int i = pos - 1; i >= 0; i--) {
-        bootloader_debug_uart_putc(buffer[i]);
-    }
-#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }
 
 void bootloader_debug_uart_msg_hex(const char* prefix, uint32_t value, const char* suffix)
 {
-#if BOOTLOADER_DEBUG_UART_ENABLED
-    if (!uart_initialized) {
-        return;
-    }
+    char buffer[64];
     
     if (prefix) {
         bootloader_debug_uart_puts(prefix);
     }
     
-    bootloader_debug_uart_hex(value);
+    snprintf(buffer, sizeof(buffer), "0x%08lX", (unsigned long)value);
+    bootloader_debug_uart_puts(buffer);
     
     if (suffix) {
         bootloader_debug_uart_puts(suffix);
     }
-#endif // BOOTLOADER_DEBUG_UART_ENABLED
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2015 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -169,23 +169,6 @@ ret_code_t pm_sec_params_set(ble_gap_sec_params_t * p_sec_params);
  * @retval NRF_ERROR_INTERNAL             If an internal error occurred.
  */
 ret_code_t pm_conn_secure(uint16_t conn_handle, bool force_repairing);
-
-
-/**@brief Function for excluding a connection from the BLE event flow that is handled inside
- *        the Peer Manager.
- *
- * @details This function is optional, and must be called in reply to a @ref PM_EVT_CONN_CONFIG_REQ
- *          event, before the Peer Manager event handler returns. If it is not called in time,
- *          BLE events for a connection handle passed in the @ref PM_EVT_CONN_CONFIG_REQ event will
- *          be normally handled by the Peer Manager.
- *
- * @param[in]  conn_handle   The connection to be excluded.
- * @param[in]  p_context     The context found in the request event that this function replies to.
- *
- * @retval NRF_SUCCESS              Successful reply.
- * @retval NRF_ERROR_NULL           p_context was null.
- */
-ret_code_t pm_conn_exclude(uint16_t conn_handle, void const * p_context);
 
 
 /**@brief Function for providing security configuration for a link.
@@ -470,8 +453,8 @@ bool pm_address_resolve(ble_gap_addr_t const * p_addr, ble_gap_irk_t const * p_i
 /**@brief Function for getting the connection handle of the connection with a bonded peer.
  *
  * @param[in]  peer_id        The peer ID of the bonded peer.
- * @param[out] p_conn_handle  Connection handle, or @ref BLE_CONN_HANDLE_INVALID if none could be
- *                            resolved. The conn_handle can refer to a recently disconnected connection.
+ * @param[out] p_conn_handle  Connection handle, or @ref BLE_ERROR_INVALID_CONN_HANDLE if the peer
+ *                            is not connected.
  *
  * @retval NRF_SUCCESS              If the connection handle was retrieved successfully.
  * @retval NRF_ERROR_NULL           If @p p_conn_handle was NULL.
@@ -642,7 +625,6 @@ ret_code_t pm_peer_data_app_data_load(pm_peer_id_t peer_id,
  * @retval NRF_SUCCESS              If the data is scheduled to be written to persistent storage.
  * @retval NRF_ERROR_NULL           If @p p_data is NULL.
  * @retval NRF_ERROR_NOT_FOUND      If no peer was found for the peer ID.
- * @retval NRF_ERROR_INVALID_ADDR   If @p p_data is not word-aligned (4 bytes).
  * @retval NRF_ERROR_BUSY           If the underlying flash handler is busy with other flash
  *                                  operations. Try again after receiving a Peer Manager event.
  * @retval NRF_ERROR_STORAGE_FULL   If there is not enough space in persistent storage.
@@ -721,7 +703,6 @@ ret_code_t pm_peer_data_delete(pm_peer_id_t peer_id, pm_peer_data_id_t data_id);
  *
  * @retval NRF_SUCCESS              If the store operation for bonding data was initiated successfully.
  * @retval NRF_ERROR_NULL           If @p p_bonding_data or @p p_new_peer_id is NULL.
- * @retval NRF_ERROR_INVALID_ADDR   If @p p_bonding_data is not word-aligned (4 bytes).
  * @retval NRF_ERROR_STORAGE_FULL   If there is not enough space in persistent storage.
  * @retval NRF_ERROR_NO_MEM         If there are no more available peer IDs.
  * @retval NRF_ERROR_BUSY           If the underlying flash filesystem is busy with other flash

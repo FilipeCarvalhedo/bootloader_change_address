@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2008 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -43,6 +43,20 @@
 
 #ifndef NORDIC_COMMON_H__
 #define NORDIC_COMMON_H__
+
+// MBS_INTEGRATION removed - not needed in isolated project
+// Adding essential macros that were in mbsMinMax.h
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,10 +108,10 @@ extern "C" {
 
 /** Leaves the minimum of the two 32-bit arguments */
 /*lint -emacro(506, MIN) */ /* Suppress "Constant value Boolean */
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+// #define MIN(a, b) ((a) < (b) ? (a) : (b)) //MBS_INTEGRATION
 /** Leaves the maximum of the two 32-bit arguments */
 /*lint -emacro(506, MAX) */ /* Suppress "Constant value Boolean */
-#define MAX(a, b) ((a) < (b) ? (b) : (a))
+// #define MAX(a, b) ((a) < (b) ? (b) : (a)) //MBS_INTEGRATION
 
 /**@brief Concatenates two parameters.
  *
@@ -143,7 +157,7 @@ extern "C" {
 
 /** Counts number of elements inside the array
  */
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+//#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0])) //MBS_INTEGRATION
 
 /**@brief Set a bit in the uint32 word.
  *

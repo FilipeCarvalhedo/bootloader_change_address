@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 - 2021, Nordic Semiconductor ASA
+ * Copyright (c) 2014 - 2022, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -53,10 +53,14 @@
  * Note that this implementation is made only for enable SDK components which interacts with app_timer to work with FreeRTOS.
  * It is more suitable to use native FreeRTOS timer for other purposes.
  */
+#ifdef MBS_INTEGRATION
+/* This module uses MBS implementation for SysTick instead of Nordic approach. */
+#else
 /* Check if RTC FreeRTOS version is used */
 #if configTICK_SOURCE != FREERTOS_USE_RTC
 #error app_timer in FreeRTOS variant have to be used with RTC tick source configuration. Default configuration have to be used in other case.
 #endif
+#endif // MBS_INTEGRATION
 
 /**
  * @brief Waiting time for the timer queue
@@ -195,6 +199,15 @@ uint32_t app_timer_start(app_timer_id_t timer_id, uint32_t timeout_ticks, void *
     }
     else
     {
+#ifdef MBS_INTEGRATION
+#else
+        if (xTimerIsTimerActive(hTimer) != pdFALSE)
+        {
+            // Timer already running - exit silently
+            return NRF_SUCCESS;
+        }
+
+#endif // MBS_INTEGRATION
         if (xTimerChangePeriod(hTimer, timeout_ticks, APP_TIMER_WAIT_FOR_QUEUE) != pdPASS)
         {
             return NRF_ERROR_NO_MEM;
