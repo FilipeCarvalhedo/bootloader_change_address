@@ -252,7 +252,7 @@ add_custom_target(erase
     COMMENT "Erasing chip"
 )
 
-# Custom target for flashing program directly to application area (0x2F000)
+# Custom target for flashing program directly to application area (0x30000)
 # This generates bootloader settings and flashes both firmware and settings
 add_custom_target(flash_program
     # Create temp directory
@@ -267,10 +267,10 @@ add_custom_target(flash_program
         --bl-settings-version 2
         ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex
     
-    # Flash the application to 0x2F000
+    # Flash the application to 0x30000
     COMMAND nrfjprog -f nrf52 --program ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex --sectorerase --verify
     
-    # Flash the bootloader settings to the settings page (usually 0xFF000)
+    # Flash the bootloader settings to the settings page (now at 0x2F000)
     COMMAND nrfjprog -f nrf52 --program ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex --sectorerase --verify
     
     # Reset the device

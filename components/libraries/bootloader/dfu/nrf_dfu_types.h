@@ -102,7 +102,7 @@ extern "C" {
 #elif defined( NRF52833_XXAA )
     #define BOOTLOADER_SETTINGS_ADDRESS     (0x0007F000UL)
 #elif defined(NRF52840_XXAA)
-    #define BOOTLOADER_SETTINGS_ADDRESS     (0x000FF000UL)
+    #define BOOTLOADER_SETTINGS_ADDRESS     (0x0002F000UL)
 #else
     #error No valid target set for BOOTLOADER_SETTINGS_ADDRESS.
 #endif
