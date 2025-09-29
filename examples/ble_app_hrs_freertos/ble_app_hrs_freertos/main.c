@@ -1020,8 +1020,8 @@ int main(void)
     uint32_t app_start = (uint32_t)&__isr_vector;
     if (app_start == 0x27000) {
         debug_uart_puts("*** DIRECT FLASH MODE (0x27000) ***\r\n");
-    } else if (app_start == 0x2F000) {
-        debug_uart_puts("*** BOOTLOADER MODE (0x2F000) ***\r\n");
+    } else if (app_start == 0x31000) {
+        debug_uart_puts("*** BOOTLOADER MODE (0x31000) ***\r\n");
         
         // Additional bootloader debug info
         uint32_t uicr_bootloader = *(uint32_t*)0x10001014;
@@ -1100,7 +1100,7 @@ int main(void)
     debug_uart_puts("This is where bootloader mode crashes!\r\n");
     
     // Check if we're in bootloader mode - skip peer manager if so
-    if (app_start == 0x2F000) {
+    if (app_start == 0x31000) {
         debug_uart_puts("*** BOOTLOADER MODE: SKIPPING peer_manager_init ***\r\n");
         debug_uart_puts("peer_manager_init() SKIPPED\r\n");
     } else {

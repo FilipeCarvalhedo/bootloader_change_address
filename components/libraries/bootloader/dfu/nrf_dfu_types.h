@@ -102,7 +102,7 @@ extern "C" {
 #elif defined( NRF52833_XXAA )
     #define BOOTLOADER_SETTINGS_ADDRESS     (0x0007F000UL)
 #elif defined(NRF52840_XXAA)
-    #define BOOTLOADER_SETTINGS_ADDRESS     (0x0002F000UL)
+    #define BOOTLOADER_SETTINGS_ADDRESS     (0x00030000UL)
 #else
     #error No valid target set for BOOTLOADER_SETTINGS_ADDRESS.
 #endif
@@ -113,7 +113,7 @@ extern "C" {
 /** @brief Page location of the MBR parameters page address.
  */
 #if defined(NRF52840_XXAA) || defined(NRF52840_XXAA_ENGA)
-    #define NRF_MBR_PARAMS_PAGE_ADDRESS         (0x000FE000UL)
+    #define NRF_MBR_PARAMS_PAGE_ADDRESS         (0x0002F000UL)
 #elif defined(NRF52832_XXAA)
     #define NRF_MBR_PARAMS_PAGE_ADDRESS         (0x0007E000UL)
 #elif defined(NRF52833_XXAA)

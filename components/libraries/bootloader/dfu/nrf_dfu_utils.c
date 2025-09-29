@@ -86,8 +86,8 @@ void nrf_dfu_softdevice_invalidate(void)
 
 uint32_t nrf_dfu_bank0_start_addr(void)
 {
-    // Modified for secondary bootloader: Application starts after bootloader settings at 0x2F000
-    return 0x00030000;  // 0x0002F000 + 4kB (0x1000)
+    // Modified for secondary bootloader: Application starts after bootloader settings at 0x30000
+    return 0x00031000;  // 0x00030000 + 4kB (0x1000)
 }
 
 

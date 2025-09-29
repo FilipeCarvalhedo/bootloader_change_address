@@ -7,8 +7,8 @@ MEMORY
 {
   FLASH (rx) : ORIGIN = 0x00027000, LENGTH = 0x8000
   RAM (rwx) :  ORIGIN = 0x20005978, LENGTH = 0x3a688
-  bootloader_settings_page (r) : ORIGIN = 0x0002F000, LENGTH = 0x1000
-  mbr_params_page (r) : ORIGIN = 0x000FE000, LENGTH = 0x1000
+  mbr_params_page (r) : ORIGIN = 0x0002F000, LENGTH = 0x1000
+  bootloader_settings_page (r) : ORIGIN = 0x00030000, LENGTH = 0x1000
 }
 
 SECTIONS

@@ -174,35 +174,42 @@ add_custom_target(erase
     COMMENT "Erasing chip"
 )
 
-# Custom target for flashing program directly to application area (0x30000)
-# This generates bootloader settings and flashes both firmware and settings
+# Custom target for flashing program directly to application area (0x31000)
+# Creates bootloader settings and relocates from 0xFF000 to 0x30000
 add_custom_target(flash_program
     # Create temp directory
     COMMAND mkdir -p ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu
     
-    # Generate bootloader settings page for the application
+    # Generate bootloader settings (will be created for 0xFF000)
     COMMAND nrfutil_6 settings generate 
         --family NRF52840
         --application ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex
         --application-version 1
         --bootloader-version 1
         --bl-settings-version 2
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings_ff000.hex
     
-    # Flash the application to 0x30000
+    # Relocate settings from 0xFF000 to 0x30000 using srec_cat (professional tool)
+    COMMAND srec_cat 
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings_ff000.hex -intel 
+        -offset -0xCF000 
+        -o ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings_30000.hex -intel
+    
+    # Flash the application to 0x31000
     COMMAND nrfjprog -f nrf52 --program ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.hex --sectorerase --verify
     
-    # Flash the bootloader settings to the settings page (now at 0x2F000)
-    COMMAND nrfjprog -f nrf52 --program ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex --sectorerase --verify
+    # Flash the relocated bootloader settings to 0x30000
+    COMMAND nrfjprog -f nrf52 --program ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings_30000.hex --sectorerase --verify
     
     # Reset the device
     COMMAND nrfjprog -f nrf52 --reset
     
     # Clean up temporary files
-    COMMAND rm -f ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings.hex
+    COMMAND rm -f ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings_ff000.hex
+    COMMAND rm -f ${CMAKE_CURRENT_SOURCE_DIR}/../../../tmp/dfu/bootloader_settings_30000.hex
     
     DEPENDS ${PROJECT_NAME}
-    COMMENT "Flashing application and generating bootloader settings for direct flash"
+    COMMENT "Flashing application with relocated bootloader settings (0xFF000 -> 0x30000)"
 )
 
 # Print build information
