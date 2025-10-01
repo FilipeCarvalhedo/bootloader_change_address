@@ -222,7 +222,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 
 # Debug UART configuration - Set to OFF to disable
-set(BOOTLOADER_DEBUG_UART_ENABLED ON)
+set(BOOTLOADER_DEBUG_UART_ENABLED OFF)
 
 # Conditional debug sources and definitions
 if(BOOTLOADER_DEBUG_UART_ENABLED)
