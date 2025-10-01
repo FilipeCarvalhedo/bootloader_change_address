@@ -1,0 +1,24 @@
+================================================================================
+                    nRF52840 MEMORY DUMP COMPARISON REPORT
+                     ================================================================================
+Direct Flash File: direct_dump.txt
+Bootloader File: bootloader_dump.txt
+Generated: 2025-09-26 09:27:16.811819
+Total Differences: 0
+Critical Differences: 0
+
+================================================================================
+                                    SUMMARY
+                                    ================================================================================
+Register Differences: 0
+Vector Table Differences: 0
+MBR Setting Differences: 0
+
+================================================================================
+                                ALL DIFFERENCES
+                                ================================================================================
+================================================================================
+                         ANALYSIS AND RECOMMENDATIONS
+                          ================================================================================
+✅ NO CRITICAL DIFFERENCES FOUND
+The memory states are very similar. Boot issues may be timing-related.
