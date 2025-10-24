@@ -99,8 +99,9 @@ uint32_t nrf_dfu_bank0_start_addr(void)
 
 uint32_t nrf_dfu_bank1_start_addr(void)
 {
-    uint32_t bank0_addr = nrf_dfu_bank0_start_addr();
-    return ALIGN_TO_PAGE(bank0_addr + s_dfu_settings.bank_0.image_size);
+    // Force single-bank mode: always write to bank0 directly
+    // This prevents dual-bank issues when firmware is too large
+    return nrf_dfu_bank0_start_addr();
 }
 
 
