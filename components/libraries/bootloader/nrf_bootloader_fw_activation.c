@@ -42,6 +42,8 @@
 #include "nrf_dfu_settings.h"
 #include "nrf_dfu_mbr.h"
 #include "nrf_bootloader_info.h"
+#include "lk_mbr_flash_params.h"
+#include "nrf_error.h"
 #include "crc32.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
@@ -219,6 +221,16 @@ static uint32_t sd_activate(void)
         return NRF_ERROR_INTERNAL;
     }
 
+    /* SoftDevice / SDK update: program MBR params (not done for application-only updates). */
+    {
+        uint32_t const mbr = lk_mbr_flash_params_set_boot_secure();
+        if (mbr != NRF_SUCCESS)
+        {
+            NRF_LOG_ERROR("lk_mbr_flash_params_set_boot_secure (SoftDevice update) failed: 0x%x", mbr);
+            return mbr;
+        }
+    }
+
     // This can be a continuation due to a power failure
     src_addr += s_dfu_settings.write_offset;
 
@@ -247,9 +259,12 @@ static uint32_t sd_activate(void)
 }
 
 
-/** @brief Function to continue bootloader update.
+/** @brief Function to continue bootloader update (BL-only or BL portion of SD+BL package).
  *
- * @details     This function will be called after reset if there is a valid bootloader in Bank 0 or Bank 1
+ * @details     lk_mbr_flash_params_set_boot_secure() runs immediately before nrf_dfu_mbr_copy_bl (COPY_BL).
+ *              Application-only updates use app_activate() instead and do not enter this path.
+ *
+ *              This function will be called after reset if there is a valid bootloader in Bank 0 or Bank 1
  *              required to be relocated and activated through MBR commands.
  *
  * @return This function will not return if the bootloader is copied successfully.
@@ -314,10 +329,21 @@ static uint32_t bl_activate(void)
         // Bootloader is different than the banked version. Continue copy
         // Note that if the SD and BL was combined, then the split point between them is in s_dfu_settings.sd_size
         // On success this function won't return.
-        ret_val = nrf_dfu_mbr_copy_bl((uint32_t*)src_addr, len);
-        if (ret_val != NRF_SUCCESS)
         {
-            NRF_LOG_ERROR("Request to copy BL failed");
+            uint32_t const mbr = lk_mbr_flash_params_set_boot_secure();
+            if (mbr != NRF_SUCCESS)
+            {
+                NRF_LOG_ERROR("lk_mbr_flash_params_set_boot_secure (bootloader update) failed: 0x%x", mbr);
+                ret_val = mbr;
+            }
+            else
+            {
+                ret_val = nrf_dfu_mbr_copy_bl((uint32_t *)src_addr, len);
+                if (ret_val != NRF_SUCCESS)
+                {
+                    NRF_LOG_ERROR("Request to copy BL failed");
+                }
+            }
         }
     }
 

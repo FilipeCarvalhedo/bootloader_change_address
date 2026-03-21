@@ -2,8 +2,8 @@
  * @file lk_mbr_flash_params.h
  * @brief Escrita segura das palavras do MBR em flash (0xFF8 / 0xFFC) no nRF52.
  *
- * - lk_mbr_flash_params_set_boot_secure(): após nrf_dfu_init() no boot_secure (DFU já iniciado) e de novo
- *   antes de SD_MBR_COMMAND_COPY_BL (nrf_dfu_mbr_copy_bl), p.ex. ativação BL sem passar pelo loop DFU.
+ * - lk_mbr_flash_params_set_boot_secure(): em nrf_bootloader_fw_activation.c — sd_activate() (update SoftDevice)
+ *   e bl_activate() imediatamente antes de nrf_dfu_mbr_copy_bl. Não em updates só de aplicação (app_activate).
  * - lk_mbr_flash_params_clear(): antes da aplicação arrancar (nrf_bootloader_app_start_final), para
  *   restaurar boot por UICR (ex. chainload CB → boot_secure).
  *

@@ -205,7 +205,7 @@ void nrf_bootloader_app_start_final(uint32_t vector_table_addr)
 {
     /* 1º: lk_mbr_flash_params_clear() antes de ACL e antes da app (NVMC página 0).
      * Restaura 0xFF8/0xFFC = 0xFFFFFFFF para MBR usar UICR (cadeia UICR→CB→boot_secure).
-     * O set (0x27000/params) só ocorre em atualização com BL: ver bl_activate → nrf_dfu_mbr_copy_bl. */
+     * O set (boot_secure + params) ocorre só em ativação SD ou BL: nrf_bootloader_fw_activation.c (sd_activate / bl_activate). */
     {
         uint32_t const mbr_clr = lk_mbr_flash_params_clear();
         if (mbr_clr != NRF_SUCCESS)
