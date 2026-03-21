@@ -47,9 +47,10 @@
 #include "nrf_dfu_utils.h"
 #include "nrf_dfu_settings.h"
 #include "nrf_assert.h"
+#include "nrf_error.h"
 #include "nrf_log.h"
-#include "sdk_config.h"
-
+#include "nrf_mbr.h"
+#include "lk_mbr_flash_params.h"
 
 // Enabling the NRF_BOOTLOADER_READ_PROTECT define is untested.
 // Read-protecting the bootloader requires certain functions to run from RAM.
@@ -202,6 +203,22 @@ __attribute__((noinline, long_call, section(".data")))
 #endif
 void nrf_bootloader_app_start_final(uint32_t vector_table_addr)
 {
+    /* 1º: lk_mbr_flash_params_clear() antes de ACL e antes da app (NVMC página 0).
+     * Restaura 0xFF8/0xFFC = 0xFFFFFFFF para MBR usar UICR (cadeia UICR→CB→boot_secure).
+     * O set (0x27000/params) só ocorre em atualização com BL: ver bl_activate → nrf_dfu_mbr_copy_bl. */
+    {
+        uint32_t const mbr_clr = lk_mbr_flash_params_clear();
+        if (mbr_clr != NRF_SUCCESS)
+        {
+            NRF_LOG_ERROR("lk_mbr_flash_params_clear failed: 0x%x", mbr_clr);
+        }
+        else
+        {
+            NRF_LOG_INFO("MBR 0xFF8/0xFFC cleared before app");
+        }
+    }
+
+#if !defined(LK_DISABLE_ACL_PROTECTION)
     ret_code_t ret_val;
 
     // Protect MBR & bootloader code and params pages.
@@ -238,6 +255,9 @@ void nrf_bootloader_app_start_final(uint32_t vector_table_addr)
         NRF_LOG_ERROR("Could not protect SoftDevice and application, 0x%x.", ret_val);
     }
     APP_ERROR_CHECK(ret_val);
+#else
+    NRF_LOG_WARNING("ACL flash protection disabled (LK_DISABLE_ACL_PROTECTION)");
+#endif
 
     // Run application
     app_start(vector_table_addr);
